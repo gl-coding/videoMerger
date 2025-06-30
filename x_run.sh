@@ -58,29 +58,57 @@ function video_merger() {
 
 function srt_gen() {
     #语音转字幕
-    rm $filename.srt
+    rm -f $filename.srt
     python srt_gen.py $filename.wav $filename.srt
+}
+
+function srt_fix() {
+    #字幕纠错
+    python fix_srt.py $filename.txt $filename.srt -o ${filename}_corrected.srt
 }
 
 function srt_merge() {
     #字幕合成
-    rm $filename.mp4
-    ffmpeg -i $tmp_file -vf "subtitles=$filename.srt:force_style='FontSize=25" $filename.mp4
+    rm -f $filename.mp4
+    ffmpeg -i $tmp_file -vf "subtitles=${filename}_corrected.srt:force_style='FontSize=25'" $filename.mp4
 }
 
-# 定义运行步骤
-run_flag="content_pic_gen|content_rewrite|cover_gen|voice_gen|download_wavs|video_merger|srt_gen|srt_merge"
-#run_flag="content_pic_gen"
-#run_flag="content_rewrite"
-#run_flag="cover_gen"
-#run_flag="voice_gen"
-#run_flag="download_wavs"
-#run_flag="video_merger"
-#run_flag="srt_gen"
-#run_flag="srt_merge"
+function delete_api_data() {
+    #上传视频
+    python upload.py
+}
 
-# 方法1: 使用 tr 命令分割字符串并打印
-echo "$run_flag" | tr '|' '\n' | while read -r step; do
-    echo "步骤: $step"
-    $step
-done
+function gen_video() {
+    # 定义运行步骤
+    run_flag="content_pic_gen|content_rewrite|cover_gen|voice_gen|download_wavs|video_merger|srt_gen|srt_fix|srt_merge"
+    #run_flag="content_pic_gen"
+    #run_flag="content_rewrite"
+    #run_flag="cover_gen"
+    #run_flag="voice_gen"
+    #run_flag="download_wavs"
+    #run_flag="video_merger"
+    #run_flag="srt_gen"
+    #run_flag="srt_fix"
+    #run_flag="srt_merge"
+
+    # 方法1: 使用 tr 命令分割字符串并打印
+    echo "$run_flag" | tr '|' '\n' | while read -r step; do
+        echo "\n=============================================="
+        echo "步骤: $step"
+        $step
+    done
+}
+
+case $1 in
+    gen_video)
+        gen_video
+        ;;
+    delete_api_data)
+        delete_api_data
+        ;;
+    *)
+        echo "Usage: $0 {gen_video|delete_api_data}"
+        exit 1
+esac
+
+#sh x_run.sh gen_video

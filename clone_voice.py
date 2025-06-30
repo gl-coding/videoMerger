@@ -98,7 +98,7 @@ def get_voice_list(verbose=True):
         
         if verbose:
             print(f"状态码: {response.status_code}")
-            print(f"响应: {json.dumps(result, ensure_ascii=False, indent=2)}")
+        print(f"响应: {json.dumps(result, ensure_ascii=False, indent=2)}")
         
         if response.status_code == 200 and result.get('status') == 'success':
             if verbose:
@@ -146,7 +146,7 @@ def clear_voice_data(verbose=True):
         
         if verbose:
             print(f"状态码: {response.status_code}")
-            print(f"响应: {json.dumps(result, ensure_ascii=False, indent=2)}")
+        print(f"响应: {json.dumps(result, ensure_ascii=False, indent=2)}")
         
         if response.status_code == 200 and result.get('status') == 'success':
             if verbose:
