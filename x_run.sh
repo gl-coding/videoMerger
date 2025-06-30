@@ -11,6 +11,9 @@ mv content_pic.jpg $filename.jpeg
 #语音生成
 python clone_voice.py -f content.txt -o qinghuanv -v qinghuanv
 
+#下载语音
+python download_wavs.py 4 --delete-after-download -d data/
+
 #视频合成
 python video_merger.py $filename.jpeg $filename.wav $tmp_file
 

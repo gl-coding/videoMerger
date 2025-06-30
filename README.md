@@ -221,3 +221,22 @@ videoMerger/
 ## 贡献
 
 欢迎提交Issue和Pull Request来改进这个项目！ # videoMerger
+
+
+# 基本下载
+python download_wavs.py 4
+
+# 列出文件（显示ID、原名、URL）
+python download_wavs.py 4 -l
+
+# 下载到指定目录
+python download_wavs.py 4 -d /path/to/download
+
+# 下载后删除服务器文件
+python download_wavs.py 4 --delete-after-download
+
+# 仅删除文件夹中所有文件
+python download_wavs.py 4 --delete-only
+
+# 删除指定ID的文件
+python download_wavs.py 4 --delete-file-id 123
