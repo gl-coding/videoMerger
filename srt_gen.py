@@ -82,7 +82,7 @@ def transcribe_to_srt(audio_file, output_srt=None, model_name="large-v3-turbo", 
     result = model.transcribe(
         audio_file, 
         language=language, 
-        initial_prompt="简体中文",
+        initial_prompt="请使用简体中文输出",
         word_timestamps=True  # 启用词级时间戳以获得更精确的分段
     )
     
