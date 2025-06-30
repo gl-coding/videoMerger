@@ -37,7 +37,11 @@ def handle_workflow_iterator(stream: Stream[WorkflowEvent]):
             message_json = event.message.content
             message_dict = json.loads(message_json)
             rewrite_content = message_dict['rewrite']
+            title_content = message_dict['title']
+            subtitle_content = message_dict['subtitle']
             write_to_file(data_file, rewrite_content)
+            write_to_file(title_file, title_content)
+            write_to_file(subtitle_file, subtitle_content)
         elif event.event == WorkflowEventType.ERROR:
             print("got error", event.error)
         elif event.event == WorkflowEventType.INTERRUPT:
@@ -50,7 +54,10 @@ def handle_workflow_iterator(stream: Stream[WorkflowEvent]):
                 )
             )
 
-data_file = sys.argv[1]
+filename = sys.argv[1]
+data_file = f"{filename}.txt"
+title_file = f"{filename}_title.txt"
+subtitle_file = f"{filename}_subtitle.txt"
 
 handle_workflow_iterator(
     coze.workflows.runs.stream(

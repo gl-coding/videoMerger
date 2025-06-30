@@ -35,6 +35,6 @@ def download_audio_files(folder_id):
 
 if __name__ == '__main__':
     #upload_file(file_path, description)
-    #clear_folder(4)
-    download_audio_files(4)
+    clear_folder(4)
+    #download_audio_files(4)
 

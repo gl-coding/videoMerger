@@ -1,15 +1,17 @@
-data_dir=jiqimao
+data_dir=jiqimao_`date +%Y%m%d%H%M`
 voice=jiqimao
 filename=$data_dir/$voice
+content_file=$filename.txt
+title_file=$data_dir/$voice"_title.txt"
+subtitle_file=$data_dir/$voice"_subtitle.txt"
 tmp_file=$data_dir/tmp.mp4
 content_pic=$filename.jpeg
 content_video=$filename.mp4
-content_file=$data_dir/content.txt
 local_pic=picture/doutu/001.jpg
-uuid=jiqimao
+uuid=$voice
 voice_file=$data_dir/$uuid.wav
 
-#rm -rf $tmp_file $data_dir
+rm -rf $tmp_file $data_dir
 mkdir -p $data_dir
 
 function content_pic_gen() {
@@ -19,12 +21,16 @@ function content_pic_gen() {
 
 function content_rewrite() {
     #文案获取
-    python coze_content_rewrite.py $content_file
+    python coze_content_rewrite.py $filename
 }
 
 function cover_gen() {
     #封面生成
-    python coze_cover_gen.py $data_dir "理财方法" "真相解密"
+    if [ ! -f $title_file ] || [ ! -f $subtitle_file ]; then
+        echo "标题或副标题文件不存在"
+        exit 1
+    fi
+    python coze_cover_gen.py $data_dir $(cat $title_file) $(cat $subtitle_file)
 }
 
 function voice_gen() {
@@ -35,11 +41,13 @@ function voice_gen() {
 function download_wavs() {
     #下载语音
     while true; do
-        if [ -f $voice_file ]; then
+        if [ ! -f $voice_file ]; then
             python download_wavs.py 4 --delete-after-download -d $data_dir
+        else
+            echo "语音文件已存在"
             break
         fi
-        sleep 1
+        sleep 10
     done
 }
 
@@ -61,7 +69,7 @@ function srt_merge() {
 }
 
 # 定义运行步骤
-#run_flag="content_pic_gen|content_rewrite|cover_gen|voice_gen|download_wavs|video_merger|srt_gen|srt_merge"
+run_flag="content_pic_gen|content_rewrite|cover_gen|voice_gen|download_wavs|video_merger|srt_gen|srt_merge"
 #run_flag="content_pic_gen"
 #run_flag="content_rewrite"
 #run_flag="cover_gen"
@@ -69,7 +77,7 @@ function srt_merge() {
 #run_flag="download_wavs"
 #run_flag="video_merger"
 #run_flag="srt_gen"
-run_flag="srt_merge"
+#run_flag="srt_merge"
 
 # 方法1: 使用 tr 命令分割字符串并打印
 echo "$run_flag" | tr '|' '\n' | while read -r step; do
