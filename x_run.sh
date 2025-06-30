@@ -7,9 +7,11 @@ subtitle_file=$data_dir/$voice"_subtitle.txt"
 tmp_file=$data_dir/tmp.mp4
 content_pic=$filename.jpeg
 content_video=$filename.mp4
+content_video_bgm=$filename"_bgm.mp4"
 local_pic=picture/doutu/001.jpg
 uuid=$voice
 voice_file=$data_dir/$uuid.wav
+bgm_file=bgm/1.wav
 
 rm -rf $tmp_file $data_dir
 mkdir -p $data_dir
@@ -71,6 +73,11 @@ function srt_merge() {
     #字幕合成
     rm -f $filename.mp4
     ffmpeg -i $tmp_file -vf "subtitles=${filename}_corrected.srt:force_style='FontSize=25'" $filename.mp4
+}
+
+function add_bgm() {
+    # 循环背景音乐，音量20%，3秒淡入淡出
+    ./add_bgm.sh -v 0.3 -l -f 1 -F 3 $content_video $bgm_file $content_video_bgm
 }
 
 function delete_api_data() {
