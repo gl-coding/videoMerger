@@ -77,7 +77,7 @@ function srt_merge() {
 
 function add_bgm() {
     # 循环背景音乐，音量20%，3秒淡入淡出
-    ./add_bgm.sh -v 0.3 -l -f 1 -F 3 $content_video $bgm_file $content_video_bgm
+    ./add_bgm.sh -v 0.3 -l -f 1 -F 1 $content_video $bgm_file $content_video_bgm
 }
 
 function delete_api_data() {
@@ -87,7 +87,7 @@ function delete_api_data() {
 
 function gen_video() {
     # 定义运行步骤
-    run_flag="content_pic_gen|content_rewrite|cover_gen|voice_gen|download_wavs|video_merger|srt_gen|srt_fix|srt_merge"
+    run_flag="content_pic_gen|content_rewrite|cover_gen|voice_gen|download_wavs|video_merger|srt_gen|srt_fix|srt_merge|add_bgm"
     #run_flag="content_pic_gen"
     #run_flag="content_rewrite"
     #run_flag="cover_gen"
