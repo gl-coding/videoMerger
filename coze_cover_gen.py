@@ -2,7 +2,7 @@
 This example describes how to use the workflow interface to chat.
 """
 
-import os
+import os, json, requests, sys
 # Our official coze sdk for Python [cozepy](https://github.com/coze-dev/coze-py)
 from cozepy import COZE_CN_BASE_URL
 
@@ -31,4 +31,16 @@ workflow = coze.workflows.runs.create(
     parameters=parameters
 )
 
-print("workflow.data", workflow.data)
+#print("workflow.data", workflow.data.get("input"))
+data_dir = sys.argv[1]
+data = json.loads(workflow.data)
+urls = data.get("input")
+i = 0
+for url in urls.split("|"):
+    print(url)
+    response = requests.get(url)
+    filename = f"{data_dir}/pic_cover_{i}.jpg"
+    with open(filename, "wb") as f:
+        print(filename)
+        f.write(response.content)
+        i += 1
