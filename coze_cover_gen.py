@@ -19,9 +19,14 @@ coze = Coze(auth=TokenAuth(token=coze_api_token), base_url=coze_api_base)
 
 # Create a workflow instance in Coze, copy the last number from the web link as the workflow's ID.
 workflow_id = '7521371991465033743'
+
+data_dir = sys.argv[1]
+title = sys.argv[2]
+subtitle = sys.argv[3]
+
 parameters = {
-    "title": "理财",
-    "subtitle": "真相"
+    "title": title,
+    "subtitle": subtitle
 }
 
 # Call the coze.workflows.runs.create method to create a workflow run. The create method
@@ -32,7 +37,7 @@ workflow = coze.workflows.runs.create(
 )
 
 #print("workflow.data", workflow.data.get("input"))
-data_dir = sys.argv[1]
+
 data = json.loads(workflow.data)
 urls = data.get("input")
 i = 0

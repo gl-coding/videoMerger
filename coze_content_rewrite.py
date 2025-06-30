@@ -2,7 +2,7 @@
 This example describes how to use the workflow interface to stream chat.
 """
 
-import os, json
+import os, json, sys
 # Our official coze sdk for Python [cozepy](https://github.com/coze-dev/coze-py)
 from cozepy import COZE_CN_BASE_URL
 
@@ -25,8 +25,8 @@ workflow_id = '7520641397058437163'
 # through this iterator to obtain WorkflowEvent and handle them separately according to
 # the type of WorkflowEvent.
 
-def write_to_file(content):
-    with open('content.txt', 'w') as f:
+def write_to_file(data_file, content):
+    with open(data_file, 'w') as f:
         f.write(content)
 
 def handle_workflow_iterator(stream: Stream[WorkflowEvent]):
@@ -37,7 +37,7 @@ def handle_workflow_iterator(stream: Stream[WorkflowEvent]):
             message_json = event.message.content
             message_dict = json.loads(message_json)
             rewrite_content = message_dict['rewrite']
-            write_to_file(rewrite_content)
+            write_to_file(data_file, rewrite_content)
         elif event.event == WorkflowEventType.ERROR:
             print("got error", event.error)
         elif event.event == WorkflowEventType.INTERRUPT:
@@ -50,6 +50,7 @@ def handle_workflow_iterator(stream: Stream[WorkflowEvent]):
                 )
             )
 
+data_file = sys.argv[1]
 
 handle_workflow_iterator(
     coze.workflows.runs.stream(
