@@ -1,4 +1,5 @@
 data_dir=jiqimao_`date +%Y%m%d%H%M`
+data_dir=jiqimao_202506302254
 voice=jiqimao
 filename=$data_dir/$voice
 content_file=$filename.txt
@@ -8,12 +9,15 @@ tmp_file=$data_dir/tmp.mp4
 content_pic=$filename.jpeg
 content_video=$filename.mp4
 content_video_bgm=$filename"_bgm.mp4"
+content_video_rotate=$filename"_rotate.mp4"
+content_video_srt=$filename"_srt.mp4"
+content_video_final=$filename"_final.mp4"
 local_pic=picture/doutu/001.jpg
 uuid=$voice
 voice_file=$data_dir/$uuid.wav
 bgm_file=bgm/1.wav
 
-rm -rf $tmp_file $data_dir
+#rm -rf $tmp_file $data_dir
 mkdir -p $data_dir
 
 function content_pic_gen() {
@@ -53,6 +57,12 @@ function download_wavs() {
     done
 }
 
+function rotate_image_wav() {
+    #图片旋转
+    cp $local_pic $content_pic
+    sh rotate_image_wav.sh -w 1024 -h 574 -z 2 -p 50 $content_pic $voice_file $content_video_rotate
+}
+
 function video_merger() {
     #视频合成
     python video_merger.py $content_pic $voice_file $tmp_file
@@ -71,13 +81,18 @@ function srt_fix() {
 
 function srt_merge() {
     #字幕合成
-    rm -f $filename.mp4
-    ffmpeg -i $tmp_file -vf "subtitles=${filename}_corrected.srt:force_style='FontSize=25'" $filename.mp4
+    rm -f $content_video_srt
+    ffmpeg -i $content_video_rotate -vf "subtitles=${filename}_corrected.srt:force_style='FontSize=25'" $content_video_srt
 }
 
 function add_bgm() {
     # 循环背景音乐，音量20%，3秒淡入淡出
-    ./add_bgm.sh -v 0.3 -l -f 1 -F 1 $content_video $bgm_file $content_video_bgm
+    ./add_bgm.sh -v 0.3 -l -f 1 -F 1 $content_video_srt $bgm_file $content_video_bgm
+}
+
+function add_bgm_rotate() {
+    # 循环背景音乐，音量20%，3秒淡入淡出
+    sh add_bgm.sh -v 0.3 -l -f 1 -F 1 $content_video_srt $bgm_file $content_video_bgm_rotate
 }
 
 function delete_api_data() {
@@ -87,16 +102,18 @@ function delete_api_data() {
 
 function gen_video() {
     # 定义运行步骤
-    run_flag="content_pic_gen|content_rewrite|cover_gen|voice_gen|download_wavs|video_merger|srt_gen|srt_fix|srt_merge|add_bgm"
+    #run_flag="content_pic_gen|content_rewrite|cover_gen|voice_gen|download_wavs|video_merger|srt_gen|srt_fix|srt_merge|add_bgm"
+    #run_flag="content_rewrite|cover_gen|voice_gen|download_wavs|rotate_image_wav|srt_gen|srt_fix|srt_merge|add_bgm_rotate"
     #run_flag="content_pic_gen"
     #run_flag="content_rewrite"
     #run_flag="cover_gen"
     #run_flag="voice_gen"
     #run_flag="download_wavs"
-    #run_flag="video_merger"
+    #run_flag="rotate_image_wav"
     #run_flag="srt_gen"
     #run_flag="srt_fix"
     #run_flag="srt_merge"
+    #run_flag="add_bgm_rotate"
 
     # 方法1: 使用 tr 命令分割字符串并打印
     echo "$run_flag" | tr '|' '\n' | while read -r step; do
