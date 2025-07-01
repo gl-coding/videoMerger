@@ -1,5 +1,5 @@
 data_dir=jiqimao_`date +%Y%m%d%H%M`
-data_dir=jiqimao_202506302254
+#data_dir=jiqimao_202506302254
 voice=jiqimao
 filename=$data_dir/$voice
 content_file=$filename.txt
@@ -12,6 +12,7 @@ content_video_bgm=$filename"_bgm.mp4"
 content_video_rotate=$filename"_rotate.mp4"
 content_video_srt=$filename"_srt.mp4"
 content_video_final=$filename"_final.mp4"
+content_video_bgm_rotate=$filename"_bgm_rotate.mp4"
 local_pic=picture/doutu/001.jpg
 uuid=$voice
 voice_file=$data_dir/$uuid.wav
@@ -76,6 +77,10 @@ function srt_gen() {
 
 function srt_fix() {
     #字幕纠错
+    if [ ! -f $filename.srt ]; then
+        echo "字幕文件不存在，exit"
+        exit 1
+    fi
     python fix_srt.py $filename.txt $filename.srt -o ${filename}_corrected.srt
 }
 
@@ -101,9 +106,9 @@ function delete_api_data() {
 }
 
 function gen_video() {
+    arg=$1
     # 定义运行步骤
-    #run_flag="content_pic_gen|content_rewrite|cover_gen|voice_gen|download_wavs|video_merger|srt_gen|srt_fix|srt_merge|add_bgm"
-    #run_flag="content_rewrite|cover_gen|voice_gen|download_wavs|rotate_image_wav|srt_gen|srt_fix|srt_merge|add_bgm_rotate"
+    run_flag="content_rewrite|cover_gen|voice_gen|download_wavs|rotate_image_wav|srt_gen|srt_fix|srt_merge|add_bgm_rotate"
     #run_flag="content_pic_gen"
     #run_flag="content_rewrite"
     #run_flag="cover_gen"
@@ -114,25 +119,30 @@ function gen_video() {
     #run_flag="srt_fix"
     #run_flag="srt_merge"
     #run_flag="add_bgm_rotate"
+    if [ "$arg" = "re" ]; then
+        run_flag="content_rewrite"
+    fi
 
-    # 方法1: 使用 tr 命令分割字符串并打印
-    echo "$run_flag" | tr '|' '\n' | while read -r step; do
-        echo "\n=============================================="
+    # 使用数组方式分割字符串
+    IFS='|' read -ra STEPS <<< "$run_flag"
+    for step in "${STEPS[@]}"; do
+        echo "======================================================================================="
         echo "步骤: $step"
         $step
     done
 }
 
 case $1 in
-    gen_video)
-        gen_video
+    gen)
+        gen_video $2
         ;;
-    delete_api_data)
+    delete)
         delete_api_data
         ;;
     *)
-        echo "Usage: $0 {gen_video|delete_api_data}"
+        echo "Usage: $0 {gen|delete}"
         exit 1
 esac
 
-#sh x_run.sh gen_video
+#sh x_run.sh gen re
+#sh x_run.sh gen all
