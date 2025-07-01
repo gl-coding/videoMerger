@@ -1,10 +1,10 @@
 data_dir=jiqimao_`date +%Y%m%d%H%M`
-#data_dir=jiqimao_202506302254
+data_dir=jiqimao_202507012343
 voice=jiqimao
 filename=$data_dir/$voice
-content_file=$filename.txt
-title_file=$data_dir/$voice"_title.txt"
-subtitle_file=$data_dir/$voice"_subtitle.txt"
+content_file=$filename"_rewrite.txt"
+title_file=$filename"_title.txt"
+subtitle_file=$filename"_subtitle.txt"
 tmp_file=$data_dir/tmp.mp4
 content_pic=$filename.jpeg
 content_video=$filename.mp4
@@ -13,6 +13,8 @@ content_video_rotate=$filename"_rotate.mp4"
 content_video_srt=$filename"_srt.mp4"
 content_video_final=$filename"_final.mp4"
 content_video_bgm_rotate=$filename"_bgm_rotate.mp4"
+src_srt=$filename".srt"
+corrected_srt=$filename"_corrected.srt"
 local_pic=picture/doutu/001.jpg
 uuid=$voice
 voice_file=$data_dir/$uuid.wav
@@ -71,23 +73,23 @@ function video_merger() {
 
 function srt_gen() {
     #语音转字幕
-    rm -f $filename.srt
-    python srt_gen.py $filename.wav $filename.srt
+    rm -f $src_srt
+    python srt_gen.py $filename.wav $src_srt
 }
 
 function srt_fix() {
     #字幕纠错
-    if [ ! -f $filename.srt ]; then
+    if [ ! -f $src_srt ]; then
         echo "字幕文件不存在，exit"
         exit 1
     fi
-    python fix_srt.py $filename.txt $filename.srt -o ${filename}_corrected.srt
+    python fix_srt.py $content_file $src_srt -o $corrected_srt
 }
 
 function srt_merge() {
     #字幕合成
     rm -f $content_video_srt
-    ffmpeg -i $content_video_rotate -vf "subtitles=${filename}_corrected.srt:force_style='FontSize=25'" $content_video_srt
+    ffmpeg -i $content_video_rotate -vf "subtitles=${corrected_srt}:force_style='FontSize=25'" $content_video_srt
 }
 
 function add_bgm() {
