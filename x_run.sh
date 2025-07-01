@@ -141,11 +141,14 @@ case $1 in
     gen)
         gen_video $2
         ;;
-    clear)
+    clear_audio)
         clear_audio_data
         ;;
+    clear_content)
+        clear_content_data
+        ;;
     *)
-        echo "Usage: $0 {gen|delete}"
+        echo "Usage: $0 {gen|clear_audio|clear_content}"
         exit 1
 esac
 
