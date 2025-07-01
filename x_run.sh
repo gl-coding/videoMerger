@@ -100,15 +100,15 @@ function add_bgm_rotate() {
     sh add_bgm.sh -v 0.3 -l -f 1 -F 1 $content_video_srt $bgm_file $content_video_bgm_rotate
 }
 
-function delete_api_data() {
-    #上传视频
-    python upload.py
+function clear_audio_data() {
+    #清空语音数据
+    python api_operate.py clear 4
 }
 
 function gen_video() {
     arg=$1
     # 定义运行步骤
-    run_flag="content_rewrite|cover_gen|voice_gen|download_wavs|rotate_image_wav|srt_gen|srt_fix|srt_merge|add_bgm_rotate"
+    run_flag="content_rewrite|cover_gen|clear_audio_data|voice_gen|download_wavs|rotate_image_wav|srt_gen|srt_fix|srt_merge|add_bgm_rotate"
     #run_flag="content_pic_gen"
     #run_flag="content_rewrite"
     #run_flag="cover_gen"
@@ -136,8 +136,8 @@ case $1 in
     gen)
         gen_video $2
         ;;
-    delete)
-        delete_api_data
+    clear)
+        clear_audio_data
         ;;
     *)
         echo "Usage: $0 {gen|delete}"
