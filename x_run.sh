@@ -105,6 +105,11 @@ function clear_audio_data() {
     python api_operate.py clear 4
 }
 
+function clear_content_data() {
+    #清空内容数据（包含封面图链接）
+    python api_operate.py clear_content
+}
+
 function gen_video() {
     arg=$1
     # 定义运行步骤

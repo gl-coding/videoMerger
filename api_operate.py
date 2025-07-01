@@ -24,6 +24,11 @@ def clear_folder(folder_id):
     response = requests.post(url)
     print(response.json())
 
+def clear_content_data():
+    url = 'https://aliyun.ideapool.club/datapost/type-content/clear/'
+    response = requests.get(url)
+    print(response.json())
+
 def download_audio_files(folder_id):
     #获取指定文件夹下的所有文件
     url = url_base + '/api/folders/' + str(folder_id) + '/files/?all=true'
@@ -48,6 +53,9 @@ if __name__ == '__main__':
     # clear命令
     clear_parser = subparsers.add_parser('clear', help='清空文件夹')
     clear_parser.add_argument('folder_id', type=int, help='要清空的文件夹ID')
+
+    # clear_content命令
+    clear_content_parser = subparsers.add_parser('clear_content', help='清空内容数据')
     
     # download命令
     download_parser = subparsers.add_parser('download', help='下载音频文件')
@@ -61,6 +69,8 @@ if __name__ == '__main__':
         clear_folder(args.folder_id)
     elif args.command == 'download':
         download_audio_files(args.folder_id)
+    elif args.command == 'clear_content':
+        clear_content_data()
     else:
         parser.print_help()
 
