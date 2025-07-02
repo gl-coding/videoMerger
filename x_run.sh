@@ -15,12 +15,11 @@ content_video_final=$filename"_final.mp4"
 content_video_bgm_rotate=$filename"_bgm_rotate.mp4"
 src_srt=$filename".srt"
 corrected_srt=$filename"_corrected.srt"
-local_pic=picture/doutu/001.jpg
+local_pic=picture/doutu/036.jpg
 uuid=$voice
 voice_file=$data_dir/$uuid.wav
 bgm_file=bgm/1.wav
 
-#rm -rf $tmp_file $data_dir
 mkdir -p $data_dir
 
 function content_pic_gen() {
@@ -63,6 +62,7 @@ function download_wavs() {
 function rotate_image_wav() {
     #图片旋转
     cp $local_pic $content_pic
+    rm -f $content_video_rotate
     sh rotate_image_wav.sh -w 1024 -h 574 -z 2 -p 50 $content_pic $voice_file $content_video_rotate
 }
 
@@ -83,6 +83,7 @@ function srt_fix() {
         echo "字幕文件不存在，exit"
         exit 1
     fi
+    rm -f $corrected_srt
     python fix_srt.py $content_file $src_srt -o $corrected_srt
 }
 
@@ -99,6 +100,7 @@ function add_bgm() {
 
 function add_bgm_rotate() {
     # 循环背景音乐，音量20%，3秒淡入淡出
+    rm -f $content_video_bgm_rotate
     sh add_bgm.sh -v 0.3 -l -f 1 -F 1 $content_video_srt $bgm_file $content_video_bgm_rotate
 }
 
@@ -112,10 +114,15 @@ function clear_content_data() {
     python api_operate.py clear_content
 }
 
+function clear_dir() {
+    #清空当前目录
+    mv $data_dir ~/Downloads/
+}
+
 function gen_video() {
     arg=$1
     # 定义运行步骤
-    run_flag="content_rewrite|cover_gen|clear_audio_data|voice_gen|download_wavs|rotate_image_wav|srt_gen|srt_fix|srt_merge|add_bgm_rotate"
+    run_flag="content_rewrite|cover_gen|clear_audio_data|voice_gen|download_wavs|rotate_image_wav|srt_gen|srt_fix|srt_merge|add_bgm_rotate|clear_content_data"
     #run_flag="content_pic_gen"
     #run_flag="content_rewrite"
     #run_flag="cover_gen"
@@ -126,8 +133,14 @@ function gen_video() {
     #run_flag="srt_fix"
     #run_flag="srt_merge"
     #run_flag="add_bgm_rotate"
-    if [ "$arg" = "re" ]; then
+    if [ "$arg" = "r" ]; then
         run_flag="content_rewrite"
+    fi
+    if [ "$arg" = "n" ]; then
+        run_flag="cover_gen|clear_audio_data|voice_gen|download_wavs|rotate_image_wav|srt_gen|srt_fix|srt_merge|add_bgm_rotate|clear_content_data"
+    fi
+    if [ "$arg" = "c" ]; then
+        run_flag="clear_dir"
     fi
 
     # 使用数组方式分割字符串
