@@ -37,7 +37,7 @@ def handle_workflow_iterator(stream: Stream[WorkflowEvent]):
             message_json = event.message.content
             message_dict = json.loads(message_json)
             for k, v in message_dict.items():
-                data_file = f"{data_file_prefix}_{k}.txt"
+                data_file = f"{data_file_prefix}_text_{k}.txt"
                 write_to_file(data_file, v)
 
             #rewrite_content = message_dict['rewrite']
