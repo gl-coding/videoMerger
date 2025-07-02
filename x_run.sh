@@ -133,13 +133,19 @@ function gen_video() {
     #run_flag="srt_fix"
     #run_flag="srt_merge"
     #run_flag="add_bgm_rotate"
-    if [ "$arg" = "r" ]; then
+    if [ "$arg" = "re" ]; then
         run_flag="content_rewrite"
+    fi
+    if [ "$arg" = "co" ]; then
+        run_flag="cover_gen"
+    fi
+    if [ "$arg" = "sf" ]; then
+        run_flag="srt_fix"
     fi
     if [ "$arg" = "n" ]; then
         run_flag="cover_gen|clear_audio_data|voice_gen|download_wavs|rotate_image_wav|srt_gen|srt_fix|srt_merge|add_bgm_rotate|clear_content_data"
     fi
-    if [ "$arg" = "c" ]; then
+    if [ "$arg" = "cl" ]; then
         run_flag="clear_dir"
     fi
 
