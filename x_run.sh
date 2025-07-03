@@ -17,7 +17,7 @@ content_video_bgm_rotate=$filename"_video_bgm_rotate.mp4"
 src_srt=$filename"_srt.srt"
 corrected_srt=$filename"_srt_corrected.srt"
 #pic
-local_pic=picture/doutu/036.jpg
+local_pic=picture/doutu/013.jpg
 content_pic=$filename"_pic.jpeg"
 #wav
 uuid=$voice
@@ -52,6 +52,7 @@ function voice_gen() {
 
 function download_wavs() {
     #下载语音
+    rm -f $voice_file
     while true; do
         if [ ! -f $voice_file ]; then
             python download_wavs.py 4 --delete-after-download -d $data_dir
@@ -78,7 +79,7 @@ function video_merger() {
 function srt_gen() {
     #语音转字幕
     rm -f $src_srt
-    python srt_gen.py $filename.wav $src_srt
+    python srt_gen.py $filename.wav $src_srt 
 }
 
 function srt_fix() {
@@ -88,7 +89,7 @@ function srt_fix() {
         exit 1
     fi
     rm -f $corrected_srt
-    python fix_srt.py $content_file $src_srt -o $corrected_srt
+    python fix_srt.py $content_file $src_srt -o $corrected_srt 
 }
 
 function srt_merge() {
@@ -105,7 +106,7 @@ function add_bgm() {
 function add_bgm_rotate() {
     # 循环背景音乐，音量20%，3秒淡入淡出
     rm -f $content_video_bgm_rotate
-    sh add_bgm.sh -v 0.3 -l -f 1 -F 1 $content_video_srt $bgm_file $content_video_bgm_rotate
+    sh add_bgm.sh -v 0.4 -l -f 1 -F 1 $content_video_srt $bgm_file $content_video_bgm_rotate
 }
 
 function clear_audio_data() {
@@ -140,6 +141,9 @@ function gen_video() {
     if [ "$arg" = "re" ]; then
         run_flag="content_rewrite"
     fi
+    if [ "$arg" = "wav" ]; then
+        run_flag="clear_audio_data|voice_gen|download_wavs"
+    fi
     if [ "$arg" = "co" ]; then
         run_flag="cover_gen"
     fi
@@ -147,7 +151,7 @@ function gen_video() {
         run_flag="srt_fix"
     fi
     if [ "$arg" = "n" ]; then
-        run_flag="cover_gen|clear_audio_data|voice_gen|download_wavs|rotate_image_wav|srt_gen|srt_fix|srt_merge|add_bgm_rotate|clear_content_data"
+        run_flag="cover_gen|rotate_image_wav|srt_gen|srt_fix|srt_merge|add_bgm_rotate|clear_content_data"
     fi
     if [ "$arg" = "cl" ]; then
         run_flag="clear_dir"
