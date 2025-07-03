@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-智能字幕纠错工具 - 基于句子匹配的纠错算法
+字幕纠错工具 - 基于字符映射的纠错算法
 """
 
 import re
 import os
 import argparse
 import sys
-from difflib import SequenceMatcher
 
 def preprocess_text(text):
     """预处理文本，标准化但保留句子结构"""
@@ -36,49 +35,6 @@ def clean_text_for_comparison(text):
         cleaned = cleaned.replace(p, '')
     cleaned = re.sub(r'\s+', '', cleaned)
     return cleaned
-
-def split_text_into_sentences(text):
-    """将文本分割成句子"""
-    # 使用中文句号、问号、感叹号作为分句标准
-    sentences = re.split(r'[。！？]', text)
-    # 过滤空句子并添加回句号
-    result = []
-    for sentence in sentences:
-        sentence = sentence.strip()
-        if sentence:
-            result.append(sentence)
-    return result
-
-def find_best_match(subtitle_text, original_sentences, used_sentences):
-    """为字幕文本找到最佳匹配的原始句子"""
-    subtitle_clean = clean_text_for_comparison(subtitle_text)
-    best_score = 0
-    best_match = None
-    best_index = -1
-    
-    for i, orig_sentence in enumerate(original_sentences):
-        if i in used_sentences:
-            continue
-            
-        orig_clean = clean_text_for_comparison(orig_sentence)
-        
-        # 计算相似度
-        similarity = SequenceMatcher(None, subtitle_clean, orig_clean).ratio()
-        
-        # 如果字幕文本是原始句子的子串，提高分数
-        if subtitle_clean in orig_clean or orig_clean in subtitle_clean:
-            similarity += 0.3
-        
-        # 长度相近的句子优先
-        length_ratio = min(len(subtitle_clean), len(orig_clean)) / max(len(subtitle_clean), len(orig_clean), 1)
-        similarity *= (0.5 + 0.5 * length_ratio)
-        
-        if similarity > best_score:
-            best_score = similarity
-            best_match = orig_sentence
-            best_index = i
-    
-    return best_match, best_index, best_score
 
 def parse_srt(srt_path):
     """解析SRT文件"""
@@ -111,8 +67,8 @@ def parse_srt(srt_path):
     
     return subtitles
 
-def correct_subtitles_intelligent(original_text_path, srt_path, output_path):
-    """使用智能句子匹配纠正字幕"""
+def generate_character_mapping(original_text_path, srt_path, mapping_output_path):
+    """生成字符级别的一对一映射文件"""
     
     # 读取原始文本
     with open(original_text_path, 'r', encoding='utf-8') as f:
@@ -121,46 +77,233 @@ def correct_subtitles_intelligent(original_text_path, srt_path, output_path):
     # 解析SRT文件
     subtitles = parse_srt(srt_path)
     
-    # 预处理原始文本
-    original_normalized = preprocess_text(original_text)
+    # 预处理文本，移除标点和空格
+    original_clean = clean_text_for_comparison(preprocess_text(original_text))
     
-    # 将原始文本分割成句子
-    original_sentences = split_text_into_sentences(original_normalized)
+    # 合并所有字幕文本
+    all_subtitle_text = ""
+    for subtitle in subtitles:
+        all_subtitle_text += subtitle['text']
     
-    print(f"原始文本分割成 {len(original_sentences)} 个句子")
+    subtitle_clean = clean_text_for_comparison(preprocess_text(all_subtitle_text))
+    
+    print(f"原始文本长度：{len(original_clean)} 字符")
+    print(f"字幕文本长度：{len(subtitle_clean)} 字符")
+    print(f"原始文本前50字符：{original_clean[:50]}")
+    print(f"字幕文本前50字符：{subtitle_clean[:50]}")
+    
+    # 创建字符映射
+    mappings = []
+    
+    # 如果长度相等，先尝试直接映射，但要验证准确性
+    if len(original_clean) == len(subtitle_clean):
+        print("长度相等，检查直接映射的准确性...")
+        
+        # 计算直接映射的匹配率
+        direct_matches = sum(1 for i in range(len(original_clean)) if original_clean[i] == subtitle_clean[i])
+        match_rate = direct_matches / len(original_clean)
+        
+        print(f"直接映射匹配率: {match_rate:.1%} ({direct_matches}/{len(original_clean)})")
+        
+        if match_rate >= 0.7:  # 如果匹配率高于70%，使用直接映射
+            print("匹配率较高，使用直接映射...")
+            for i in range(len(original_clean)):
+                mappings.append(f"{subtitle_clean[i]}\t{original_clean[i]}")
+        else:
+            print("匹配率较低，使用滑动窗口搜索...")
+            mappings = create_sliding_window_mapping(original_clean, subtitle_clean)
+    else:
+        print(f"长度不等，使用滑动窗口搜索...")
+        mappings = create_sliding_window_mapping(original_clean, subtitle_clean)
+    
+    # 保存映射文件
+    with open(mapping_output_path, 'w', encoding='utf-8') as f:
+        for mapping in mappings:
+            f.write(mapping + '\n')
+    
+    print(f"字符映射文件已生成：{mapping_output_path}")
+    print(f"总映射条数：{len(mappings)}")
+    
+    # 显示一些有差异的映射作为检查
+    different_mappings = []
+    for mapping in mappings[:50]:  # 只检查前50个
+        parts = mapping.split('\t')
+        if len(parts) == 2 and parts[0] != parts[1]:
+            different_mappings.append(mapping)
+    
+    if different_mappings:
+        print(f"前50个字符中发现 {len(different_mappings)} 个差异映射:")
+        for i, diff in enumerate(different_mappings[:10]):  # 只显示前10个
+            print(f"  {diff}")
+        if len(different_mappings) > 10:
+            print(f"  ... 还有 {len(different_mappings) - 10} 个差异")
+    
+    return mappings
+
+def create_sliding_window_mapping(original_clean, subtitle_clean):
+    """使用滑动窗口创建字符映射"""
+    mappings = []
+    
+    # 使用多个窗口大小进行搜索
+    window_sizes = [50, 100, 200]
+    best_alignment = None
+    best_score = 0
+    
+    for window_size in window_sizes:
+        window_size = min(window_size, len(subtitle_clean), len(original_clean))
+        if window_size < 10:  # 窗口太小跳过
+            continue
+            
+        print(f"尝试窗口大小: {window_size}")
+        
+        best_pos = 0
+        best_window_score = 0
+        
+        # 搜索最佳起始位置
+        max_search = len(original_clean) - window_size + 1
+        for start_pos in range(min(max_search, 100)):  # 限制搜索范围避免过慢
+            score = 0
+            for i in range(window_size):
+                if i < len(subtitle_clean) and start_pos + i < len(original_clean):
+                    if original_clean[start_pos + i] == subtitle_clean[i]:
+                        score += 1
+            
+            if score > best_window_score:
+                best_window_score = score
+                best_pos = start_pos
+        
+        window_match_rate = best_window_score / window_size
+        print(f"  最佳位置: {best_pos}, 匹配率: {window_match_rate:.1%}")
+        
+        if window_match_rate > best_score:
+            best_score = window_match_rate
+            best_alignment = best_pos
+    
+    if best_alignment is not None:
+        print(f"最终选择对齐位置: {best_alignment}, 匹配率: {best_score:.1%}")
+        
+        # 显示对齐示例
+        if best_alignment + 20 <= len(original_clean) and 20 <= len(subtitle_clean):
+            print("对齐示例:")
+            print(f"原文: {original_clean[best_alignment:best_alignment+20]}")
+            print(f"字幕: {subtitle_clean[:20]}")
+    else:
+        print("未找到合适的对齐位置，使用默认对齐")
+        best_alignment = 0
+    
+    # 创建映射 - 优先考虑原文的完整性
+    for i in range(len(original_clean)):
+        subtitle_pos = i - best_alignment
+        if 0 <= subtitle_pos < len(subtitle_clean):
+            # 有对应的字幕字符
+            mappings.append(f"{subtitle_clean[subtitle_pos]}\t{original_clean[i]}")
+        else:
+            # 没有对应的字幕字符，保持原文字符
+            mappings.append(f"{original_clean[i]}\t{original_clean[i]}")
+    
+    return mappings
+
+def load_character_mapping(mapping_file_path):
+    """加载字符映射文件"""
+    mapping_dict = {}
+    
+    with open(mapping_file_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line and '\t' in line:
+                parts = line.split('\t')
+                if len(parts) == 2:
+                    wrong_char, correct_char = parts
+                    mapping_dict[wrong_char] = correct_char
+    
+    print(f"加载了 {len(mapping_dict)} 个字符映射")
+    return mapping_dict
+
+def apply_character_mapping(text, mapping_dict):
+    """根据字符映射纠正文本"""
+    corrected_text = ""
+    
+    for char in text:
+        # 如果字符在映射表中，使用映射后的字符
+        if char in mapping_dict:
+            corrected_text += mapping_dict[char]
+        else:
+            # 不在映射表中的字符保持原样（通常是标点符号）
+            corrected_text += char
+    
+    return corrected_text
+
+def correct_srt_with_mapping(original_text_path, srt_path, output_path):
+    """使用字符映射文件纠正SRT字幕"""
+    
+    # 生成映射文件路径
+    srt_dir = os.path.dirname(srt_path)
+    srt_name = os.path.splitext(os.path.basename(srt_path))[0]
+    mapping_file_path = os.path.join(srt_dir, f"{srt_name}_mapping.txt")
+    
+    # 先生成字符映射文件
+    print("步骤1: 生成字符映射文件...")
+    generate_character_mapping(original_text_path, srt_path, mapping_file_path)
+    
+    print("\n步骤2: 从映射文件提取正确的文本序列...")
+    
+    # 从映射文件中提取正确的字符序列
+    correct_sequence = []
+    with open(mapping_file_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line and '\t' in line:
+                parts = line.split('\t')
+                if len(parts) == 2:
+                    wrong_char, correct_char = parts
+                    correct_sequence.append(correct_char)
+    
+    print(f"提取到正确字符序列，长度: {len(correct_sequence)}")
+    print(f"正确序列前50字符: {''.join(correct_sequence[:50])}")
+    
+    # 解析SRT文件
+    subtitles = parse_srt(srt_path)
     print(f"解析到 {len(subtitles)} 条字幕")
     
-    # 纠正字幕
-    corrected_subtitles = []
-    used_sentences = set()
-    
+    # 计算每条字幕对应的字符长度（去除标点符号）
+    subtitle_char_lengths = []
     for subtitle in subtitles:
-        # 预处理字幕文本
-        subtitle_normalized = preprocess_text(subtitle['text'])
+        # 预处理字幕文本，移除标点和空格
+        clean_subtitle = clean_text_for_comparison(preprocess_text(subtitle['text']))
+        subtitle_char_lengths.append(len(clean_subtitle))
+    
+    # 按字符长度重新分配正确的文本
+    corrected_subtitles = []
+    char_index = 0
+    corrected_count = 0
+    
+    for i, subtitle in enumerate(subtitles):
+        char_length = subtitle_char_lengths[i]
         
-        # 寻找最佳匹配
-        best_match, best_index, score = find_best_match(subtitle_normalized, original_sentences, used_sentences)
-        
-        if best_match and score > 0.3:  # 相似度阈值
-            corrected_text = best_match
-            used_sentences.add(best_index)
-            print(f"字幕 {subtitle['number']}: 匹配度 {score:.3f}")
+        if char_index + char_length <= len(correct_sequence):
+            # 提取对应的正确字符
+            correct_chars = correct_sequence[char_index:char_index + char_length]
+            corrected_text = ''.join(correct_chars)
+            char_index += char_length
         else:
-            # 如果没有好的匹配，保留原文但进行基本清理
-            corrected_text = subtitle_normalized
-            print(f"字幕 {subtitle['number']}: 无匹配，保留原文")
+            # 如果超出范围，使用剩余的所有字符
+            remaining_chars = correct_sequence[char_index:]
+            corrected_text = ''.join(remaining_chars)
+            char_index = len(correct_sequence)
+        
+        # 恢复基本的标点符号
+        corrected_text = restore_punctuation_from_original(corrected_text, subtitle['text'])
+        
+        # 检查是否有修改
+        if corrected_text != subtitle['text']:
+            corrected_count += 1
         
         corrected_subtitles.append({
             'number': subtitle['number'],
-            'timestamp': subtitle['timestamp'], 
+            'timestamp': subtitle['timestamp'],
             'text': corrected_text,
             'original': subtitle['text']
         })
-    
-    # 处理未使用的句子（可能是长句子被拆分了）
-    unused_sentences = [i for i in range(len(original_sentences)) if i not in used_sentences]
-    if unused_sentences:
-        print(f"有 {len(unused_sentences)} 个句子未匹配，可能需要手动检查")
     
     # 写入纠正后的SRT文件
     with open(output_path, 'w', encoding='utf-8') as f:
@@ -169,10 +312,44 @@ def correct_subtitles_intelligent(original_text_path, srt_path, output_path):
             f.write(f"{subtitle['timestamp']}\n")
             f.write(f"{subtitle['text']}\n\n")
     
+    print(f"\n纠错完成！")
+    print(f"映射文件：{mapping_file_path}")
+    print(f"输出文件：{output_path}")
+    print(f"总字幕条数：{len(corrected_subtitles)}")
+    print(f"纠正条数：{corrected_count}")
+    print(f"纠正率：{corrected_count/len(corrected_subtitles)*100:.1f}%")
+    
     return corrected_subtitles
 
+def restore_punctuation_from_original(corrected_text, original_subtitle_text):
+    """根据原字幕的标点符号模式恢复纠正文本的标点"""
+    if not corrected_text:
+        return corrected_text
+    
+    # 获取原字幕的标点符号位置和类型
+    punctuation = '！？。，、；：""''（）【】《》〈〉…—–-·～!?.,;:"\'()[]<>~`@#$%^&*+=|\\/'
+    
+    # 找出原字幕中的标点符号位置
+    original_puncts = []
+    original_chars = []
+    for i, char in enumerate(original_subtitle_text):
+        if char in punctuation:
+            original_puncts.append((len(original_chars), char))  # (位置, 标点)
+        elif not char.isspace():
+            original_chars.append(char)
+    
+    # 构建带标点的纠正文本
+    result = list(corrected_text)
+    
+    # 在相应位置插入标点符号
+    for pos, punct in original_puncts:
+        if pos <= len(result):
+            result.insert(pos, punct)
+    
+    return ''.join(result)
+
 def main():
-    parser = argparse.ArgumentParser(description='智能字幕纠错工具 - 基于句子匹配的纠错算法')
+    parser = argparse.ArgumentParser(description='字幕纠错工具 - 基于字符映射的纠错算法')
     parser.add_argument('original_text', help='原始文本文件路径')
     parser.add_argument('srt_file', help='需要纠正的SRT字幕文件路径')
     parser.add_argument('-o', '--output', help='输出的纠正后SRT文件路径（默认在原SRT文件目录生成）')
@@ -180,14 +357,6 @@ def main():
     parser.add_argument('--show-all', action='store_true', help='显示所有字幕对比（默认只显示前10条）')
     
     args = parser.parse_args()
-    
-    # 设置输出文件路径
-    if args.output:
-        output_file = args.output
-    else:
-        srt_dir = os.path.dirname(args.srt_file)
-        srt_name = os.path.splitext(os.path.basename(args.srt_file))[0]
-        output_file = os.path.join(srt_dir, f"{srt_name}_corrected.srt")
     
     # 检查文件是否存在
     if not os.path.exists(args.original_text):
@@ -198,15 +367,21 @@ def main():
         print(f"错误：SRT字幕文件不存在：{args.srt_file}")
         sys.exit(1)
     
-    print("开始智能纠正字幕文件...")
+    # 设置输出文件路径
+    if args.output:
+        output_file = args.output
+    else:
+        srt_dir = os.path.dirname(args.srt_file)
+        srt_name = os.path.splitext(os.path.basename(args.srt_file))[0]
+        output_file = os.path.join(srt_dir, f"{srt_name}_corrected.srt")
+    
+    print("开始字符映射纠错...")
     print(f"原始文本：{args.original_text}")
     print(f"SRT文件：{args.srt_file}")
     print(f"输出文件：{output_file}")
     
     # 执行纠错
-    corrected_subtitles = correct_subtitles_intelligent(args.original_text, args.srt_file, output_file)
-    
-    print(f"\n纠错完成！输出文件：{output_file}")
+    corrected_subtitles = correct_srt_with_mapping(args.original_text, args.srt_file, output_file)
     
     # 显示对比信息
     if args.verbose:
@@ -224,15 +399,6 @@ def main():
         
         if not args.show_all and len(corrected_subtitles) > 10:
             print(f"\n... 还有 {len(corrected_subtitles) - 10} 条字幕，使用 --show-all 查看全部")
-    
-    # 显示统计信息
-    corrected_count = sum(1 for subtitle in corrected_subtitles if subtitle['original'] != subtitle['text'])
-    
-    print(f"\n=== 统计信息 ===")
-    print(f"总字幕条数：{len(corrected_subtitles)}")
-    print(f"纠正条数：{corrected_count}")
-    print(f"无需纠正：{len(corrected_subtitles) - corrected_count}")
-    print(f"纠正率：{corrected_count/len(corrected_subtitles)*100:.1f}%")
 
 if __name__ == "__main__":
     main()
