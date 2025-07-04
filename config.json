@@ -1,0 +1,18 @@
+{
+    "output_folder": "/Users/guolei/work/local/stpython/videoMerger/jiqimao",
+    "window_settings": {
+        "width": 800,
+        "height": 635,
+        "x": 346,
+        "y": 183
+    },
+    "file_names": {
+        "title": "result_text_title.txt",
+        "subtitle": "result_text_subtitle.txt",
+        "content": "result_text_rewrite.txt"
+    },
+    "ui_settings": {
+        "font_size": 13,
+        "font_family": "Microsoft YaHei"
+    }
+}

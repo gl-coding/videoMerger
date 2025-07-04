@@ -1,7 +1,7 @@
 data_dir=jiqimao_`date +%Y%m%d%H%M`
-data_dir=jiqimao_202507012343
-voice=jiqimao
-filename=$data_dir/$voice
+data_dir=jiqimao
+voice=dushunan2
+filename=$data_dir/result
 #content
 content_file=$filename"_text_rewrite.txt"
 title_file=$filename"_text_title.txt"
@@ -20,9 +20,9 @@ corrected_srt=$filename"_srt_corrected.srt"
 local_pic=picture/doutu/013.jpg
 content_pic=$filename"_pic.jpeg"
 #wav
-uuid=$voice
+uuid=result
 voice_file=$data_dir/$uuid.wav
-bgm_file=bgm/1.wav
+bgm_file=bgm/8.wav
 
 mkdir -p $data_dir
 
