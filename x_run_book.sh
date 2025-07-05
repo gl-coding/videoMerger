@@ -155,5 +155,53 @@ function video_add_bgm() {
 
 #add_bgm_rotate
 #exit 0
+#video_add_bgm
 
-video_add_bgm
+function clear_audio_data() {
+    #清空语音数据
+    python api_operate.py clear 4
+}
+
+function clear_content_data() {
+    #清空内容数据（包含封面图链接）
+    python api_operate.py clear_content
+}
+
+function gen_video() {
+    arg=$1
+    # 定义运行步骤
+    #run_flag="content_rewrite|cover_gen|clear_audio_data|voice_gen|download_wavs|rotate_image_wav|srt_gen|srt_fix|srt_merge|add_bgm_rotate|clear_content_data"
+    #run_flag="content_pic_gen"
+    #run_flag="content_rewrite"
+    #run_flag="cover_gen"
+    #run_flag="voice_gen"
+    #run_flag="download_wavs"
+    #run_flag="rotate_image_wav"
+    #run_flag="srt_gen"
+    #run_flag="srt_fix"
+    #run_flag="srt_merge"
+    #run_flag="add_bgm_rotate"
+    run_flag=$arg
+    # 使用数组方式分割字符串
+    IFS='|' read -ra STEPS <<< "$run_flag"
+    for step in "${STEPS[@]}"; do
+        echo "======================================================================================="
+        echo "步骤: $step"
+        $step
+    done
+}
+
+case $1 in
+    gen)
+        gen_video $2
+        ;;
+    clear_audio)
+        clear_audio_data
+        ;;
+    clear_content)
+        clear_content_data
+        ;;
+    *)
+        echo "Usage: $0 {gen|clear_audio|clear_content}"
+        exit 1
+esac
