@@ -1,3 +1,8 @@
+#rm -f out0.mp4
+#sh image_to_video.sh pic.jpg jiqimao/result.wav out0.mp4 -e fade
+#sh image_to_video.sh pic.jpg jiqimao/result.wav out0.mp4 -e kenburns
+#sh image_to_video.sh pic1.jpg jiqimao/result.wav out0.mp4 -e move_down   
+#exit 0
 ## 特效
 # fade（默认）- 淡入淡出效果
 # move_right - 从左向右移动
@@ -24,10 +29,14 @@ python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --a
 #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect move_down
 #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect move_right
 
+# 添加背景文字
+rm -f bg.mp4
+ffmpeg -i out0.mp4 -vf "drawtext=text='《朝花夕拾》':fontfile=./font/Aa剑豪体.ttf:fontsize=160:fontcolor=red@0.8:x=(W-tw)/2:y=(H-th)/2:" bg.mp4
+
 # 用新字体生成mp4字幕文件
 rm -f output.mp4
 #ffmpeg -i jiqimao/result_video_rotate.mp4 -vf "ass=jiqimao/result_srt.ass" -c:a copy output.mp4
-ffmpeg -i jiqimao/result_video_rotate.mp4 -vf "ass=jiqimao/result_srt.ass:fontsdir=./font" -c:a copy output.mp4
+ffmpeg -i bg.mp4 -vf "ass=jiqimao/result_srt.ass:fontsdir=./font" -c:a copy output.mp4
 
 # 添加水印
 rm -f out1.mp4 out2.mp4
