@@ -1,8 +1,9 @@
 #rm -f out0.mp4
-#sh image_to_video.sh pic.jpg jiqimao/result.wav out0.mp4 -e fade
-#sh image_to_video.sh pic.jpg jiqimao/result.wav out0.mp4 -e kenburns
-#sh image_to_video.sh pic1.jpg jiqimao/result.wav out0.mp4 -e move_down   
+#sh image_to_video.sh picture/pic.jpg jiqimao/result.wav out0.mp4 -e fade
+#sh image_to_video.sh picture/pic.jpg jiqimao/result.wav out0.mp4 -e kenburns
+#sh image_to_video.sh picture/pic1.jpg jiqimao/result.wav out0.mp4 -e move_down   
 #exit 0
+
 ## 特效
 # fade（默认）- 淡入淡出效果
 # move_right - 从左向右移动

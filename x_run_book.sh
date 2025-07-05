@@ -1,0 +1,147 @@
+data_dir=jiqimao
+voice=qinghuanv
+filename=$data_dir/result
+#content
+content_file=$filename"_text_rewrite.txt"
+title_file=$filename"_text_title.txt"
+subtitle_file=$filename"_text_subtitle.txt"
+tmp_file=$data_dir/tmp.mp4
+#video
+content_video_bgm=$filename"_video_bgm.mp4"
+content_video_pic=$filename"_video_pic.mp4"
+content_video_srt=$filename"_video_srt.mp4"
+content_video_bg_srt=$filename"_video_bg_srt.mp4"
+content_video_bg_srt_ass=$filename"_video_bg_srt_ass.mp4"
+content_video_bg_srt_ass_header=$filename"_video_bg_srt_ass_header.mp4"
+#srt
+src_srt=$filename"_srt.srt"
+corrected_srt=$filename"_srt_corrected.srt"
+srt_ass=$filename"_srt.ass"
+#pic
+local_pic=picture/doutu/013.jpg
+#content_pic=$filename"_pic.jpeg"
+content_pic=$data_dir/pic_cover_0.jpg
+#wav
+uuid=result
+voice_file=$data_dir/$uuid.wav
+bgm_file=bgm/8.wav
+
+# 获取内容图片
+function content_pic_get() {
+    python3 coze_content_pic_gen.py $data_dir "$(cat $title_file)"
+}
+
+#content_pic_get
+
+# 提交获取语音任务
+function voice_gen() {
+    #提交语音生成任务
+    python clone_voice.py -f $content_file -o $uuid -v $voice
+}
+
+function download_wavs() {
+    #下载语音
+    rm -f $voice_file
+    while true; do
+        if [ ! -f $voice_file ]; then
+            python download_wavs.py 4 --delete-after-download -d $data_dir
+        else
+            echo "语音文件已存在"
+            break
+        fi
+        sleep 10
+    done
+}
+
+#voice_gen
+#download_wavs
+#exit
+
+function content_video_pic_gen() {
+    rm -f $content_video_pic
+    sh image_to_video.sh $content_pic $voice_file $content_video_pic -e fade
+    #sh image_to_video.sh $content_pic $voice_file $content_video_pic -e kenburns
+    #sh image_to_video.sh $content_pic $voice_file $content_video_pic -e move_down   
+}
+
+#content_video_pic_gen
+
+function srt_gen() {
+    #语音转字幕
+    rm -f $src_srt
+    python srt_gen.py $voice_file $src_srt 
+}
+
+#srt_gen
+
+function srt_fix() {
+    #字幕纠错
+    if [ ! -f $src_srt ]; then
+        echo "字幕文件不存在，exit"
+        exit 1
+    fi
+    rm -f $corrected_srt
+    python fix_srt.py $content_file $src_srt -o $corrected_srt 
+}
+
+function srt_ass_gen() {
+    ## 特效
+    # fade（默认）- 淡入淡出效果
+    # move_right - 从左向右移动
+    # move_left - 从右向左移动
+    # move_up - 从下向上移动
+    # move_down - 从上向下移动
+    # zoom - 放大效果
+    # rotate - 360度旋转
+    # shake - 抖动效果
+    # wave - 波浪效果
+    # none - 无特效 
+    #生成ass文件
+    #rm -f jiqimao/result_srt.ass
+    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 120 --color white --effect zoom --color2 red --split 3 --size2 160 --highlight
+    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 120 --color white --effect zoom  --highlight --keyword-size 160 
+    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 120 --color white --effect zoom  --highlight --keyword-size 160 --per-line --dict-file jiqimao/dict.txt --skip-lines "1,2"
+    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 120 --color white  --highlight --keyword-size 160 --per-line --dict-file jiqimao/dict.txt --skip-lines "1,2" --effects "fade,move_right,move_left"
+    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 120 --color white  --highlight --keyword-size 160 --per-line --dict-file jiqimao/dict.txt --skip-lines "1,2" --effect zoom
+    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect rotate
+    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect shake
+    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect wave
+    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect bounce
+    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect move_up
+    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect move_down
+    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect move_right
+    python3 srt2ass_with_effect.py $src_srt $srt_ass --align 5 --font "鸿雷板书简体-正式版" --size 120 --color white  --effect zoom
+}
+
+#srt_ass_gen
+#exit 0
+
+# 添加背景文字
+function video_bg_srt_gen() {
+    rm -f $content_video_bg_srt
+    ffmpeg -i $content_video_pic -vf "drawtext=text='《$(cat $title_file)》':fontfile=./font/Aa剑豪体.ttf:fontsize=160:fontcolor=red@0.8:x=(W-tw)/2:y=100:" $content_video_bg_srt
+}
+
+#video_bg_srt_gen
+#exit 0
+
+# 用新字体生成mp4字幕文件
+function video_bg_srt_ass_gen() {
+    rm -f $content_video_bg_srt_ass
+    #ffmpeg -i jiqimao/result_video_rotate.mp4 -vf "ass=jiqimao/result_srt.ass" -c:a copy output.mp4
+    ffmpeg -i $content_video_bg_srt -vf "ass=$srt_ass:fontsdir=./font" -c:a copy $content_video_bg_srt_ass
+}
+
+#video_bg_srt_ass_gen
+#exit 0
+
+# 添加水印
+function video_bg_srt_ass_header_gen() {
+    rm -f $content_video_bg_srt_ass_header
+    ffmpeg -i $content_video_bg_srt_ass -vf "drawtext=text='@版权所有':fontfile=./font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white:x=10:y=10" $content_video_bg_srt_ass_header
+
+    #rm -f out2.mp4
+    #ffmpeg -i out1.mp4 -vf "drawtext=text='@版权所有':fontfile=./font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white@0.8:x=W-tw-10:y=10:shadowcolor=black:shadowx=2:shadowy=2" out2.mp4
+}
+
+video_bg_srt_ass_header_gen
