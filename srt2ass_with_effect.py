@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+将SRT字幕转换为ASS字幕，并为字幕添加复杂淡入淡出特效（动态调整）。
+支持通过--align参数指定字幕对齐方式，--font参数指定字体，--size参数指定字体大小，--color参数指定字体颜色。
+用法：python3 srt2ass_with_effect.py input.srt output.ass [--align 5] [--font "行书"] [--size 100] [--color white]
+"""
+import sys
+import os
+import srt
+from datetime import timedelta
+import argparse
+
+# 预定义的颜色（BGR格式）
+COLORS = {
+    "white": "&H00FFFFFF",    # 白色
+    "yellow": "&H0000FFFF",   # 黄色
+    "red": "&H000000FF",      # 红色
+    "blue": "&H00FF0000",     # 蓝色
+    "green": "&H0000FF00",    # 绿色
+    "pink": "&H00FF00FF",     # 粉色
+    "cyan": "&H00FFFF00",     # 青色
+    "black": "&H00000000",    # 黑色
+    "orange": "&H000080FF",   # 橙色
+    "purple": "&H00FF0080",   # 紫色
+}
+
+def srt_time_to_ass(ts: timedelta) -> str:
+    total_seconds = int(ts.total_seconds())
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    centiseconds = int(ts.microseconds / 10000)
+    return f"{hours:01d}:{minutes:02d}:{seconds:02d}.{centiseconds:02d}"
+
+def generate_ass_header(font_name="行书", font_size=100, primary_color="&H00FFFFFF", outline_color="&H00000000", shadow_color="&H80000000", alignment=5):
+    # Alignment: 1=左下, 2=中下, 3=右下, 4=左中, 5=正中, 6=右中, 7=左上, 8=中上, 9=右上
+    return f"""[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,{font_name},{font_size},{primary_color},&H000000FF,{outline_color},{shadow_color},-1,0,0,0,100,100,0,0,1,3,2,{alignment},30,30,30,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+
+def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, color="white"):
+    # 获取颜色代码，如果不在预定义颜色中，默认使用白色
+    primary_color = COLORS.get(color.lower(), COLORS["white"])
+    
+    with open(srt_path, 'r', encoding='utf-8') as f:
+        srt_content = f.read()
+    subs = list(srt.parse(srt_content))
+    
+    ass_lines = [generate_ass_header(
+        font_name=font_name,
+        font_size=font_size,
+        primary_color=primary_color,
+        alignment=alignment
+    )]
+    
+    for sub in subs:
+        start = srt_time_to_ass(sub.start)
+        end = srt_time_to_ass(sub.end)
+        duration_ms = int((sub.end - sub.start).total_seconds() * 1000)
+        # 动态设置淡入淡出时间（最大500ms，且不超过字幕时长的1/4）
+        fade_in = min(500, duration_ms // 4)
+        fade_out = min(500, duration_ms // 4)
+        fade_start = 0
+        fade_end = duration_ms
+        # 强制加\anX对齐标签
+        align_tag = f"\\an{alignment}"
+        # ASS复杂淡入淡出特效
+        fade_tag = f"{{{align_tag}\\fade(255,0,255,{fade_start},{fade_in},{fade_end-fade_out},{fade_end})\\bord3\\shad2}}"
+        text = fade_tag + sub.content.replace('\n', '\\N')
+        dialogue = f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}"
+        ass_lines.append(dialogue)
+    
+    with open(ass_path, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(ass_lines))
+    print(f"转换完成: {ass_path}")
+    print(f"使用字体: {font_name}, 大小: {font_size}, 颜色: {color}, 对齐: {alignment}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="SRT转ASS并添加特效")
+    parser.add_argument('srt_path', help='输入SRT文件')
+    parser.add_argument('ass_path', help='输出ASS文件')
+    parser.add_argument('--align', type=int, default=5, choices=range(1,10), help='字幕对齐方式，1~9，默认5（正中间）')
+    parser.add_argument('--font', type=str, default="行书", help='字幕字体，默认行书。常用：行书、楷体、KaiTi、KaiTi_GB2312、STKaiti、Microsoft YaHei')
+    parser.add_argument('--size', type=int, default=100, help='字体大小，默认100')
+    parser.add_argument('--color', type=str, default="white", choices=list(COLORS.keys()),
+                      help='字体颜色，可选：' + ', '.join(COLORS.keys()) + '，默认white')
+    args = parser.parse_args()
+    srt2ass(args.srt_path, args.ass_path, font_size=args.size, font_name=args.font, alignment=args.align, color=args.color) 

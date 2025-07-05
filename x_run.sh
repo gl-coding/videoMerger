@@ -1,6 +1,6 @@
 data_dir=jiqimao_`date +%Y%m%d%H%M`
 data_dir=jiqimao
-voice=dushunan2
+voice=jiqimao
 filename=$data_dir/result
 #content
 content_file=$filename"_text_rewrite.txt"
