@@ -7,7 +7,9 @@
 支持通过--highlight参数启用关键词高亮功能，使用NLP技术自动识别重要词语并突出显示。
 支持通过--keyword-size参数指定关键词的字体大小（默认比普通文字大20%）。
 支持通过--per-line参数启用逐行关键词分析（每行字幕提取最重要的词）。
-用法：python3 srt2ass_with_effect.py input.srt output.ass [--align 5] [--font "行书"] [--size 100] [--color white] [--effect fade] [--highlight] [--keyword-size 120] [--per-line]
+支持通过--dict-file参数指定补充词典文件，文件中每行一个词，这些词会作为NLP分析的补充被高亮显示。
+支持通过--skip-lines参数指定要跳过分析的字幕行号（从1开始），多个行号用逗号分隔。
+用法：python3 srt2ass_with_effect.py input.srt output.ass [--align 5] [--font "行书"] [--size 100] [--color white] [--effect fade] [--highlight] [--keyword-size 120] [--per-line] [--dict-file words.txt] [--skip-lines "1,3,5"]
 """
 import sys
 import os
@@ -180,6 +182,42 @@ def find_longest_word(text, min_word_len=2):
     longest_word = max(valid_words, key=len)
     return longest_word, 0.5  # 使用0.5作为默认权重
 
+def load_custom_dictionary(dict_file):
+    """
+    从文件加载自定义词典
+    返回: 词典中的词及其权重的字典（权重统一设为0.8表示重要性较高）
+    """
+    keywords_dict = {}
+    try:
+        with open(dict_file, 'r', encoding='utf-8') as f:
+            words = f.readlines()
+        # 去除空行和空白字符，并将权重统一设为0.8
+        keywords_dict = {word.strip(): 0.8 for word in words if word.strip()}
+        print(f"已从词典文件加载 {len(keywords_dict)} 个词")
+        return keywords_dict
+    except Exception as e:
+        print(f"警告：加载词典文件时出错：{e}")
+        return {}
+
+def merge_keywords(nlp_keywords, dict_keywords):
+    """
+    合并NLP分析出的关键词和词典中的关键词
+    Args:
+        nlp_keywords: NLP分析得到的关键词字典 {word: weight}
+        dict_keywords: 词典中的关键词字典 {word: weight}
+    Returns:
+        合并后的关键词字典
+    """
+    # 创建一个新字典来存储合并结果
+    merged = nlp_keywords.copy()
+    
+    # 将词典中的词添加到结果中（如果已存在则保留较高的权重）
+    for word, weight in dict_keywords.items():
+        if word not in merged or merged[word] < weight:
+            merged[word] = weight
+            
+    return merged
+
 def process_subtitle_text(text, keywords_dict, base_size, keyword_size):
     """
     处理字幕文本，为关键词添加颜色和大小标记
@@ -190,12 +228,6 @@ def process_subtitle_text(text, keywords_dict, base_size, keyword_size):
     # 使用jieba分词
     words = jieba.cut(text, cut_all=False)
     words = list(words)
-    
-    # 如果没有找到关键词，选择最长的词
-    if not any(word in keywords_dict for word in words):
-        longest_word, weight = find_longest_word(text)
-        if longest_word:
-            keywords_dict[longest_word] = weight
     
     # 为每个词分配样式
     word_styles = []
@@ -227,7 +259,7 @@ def apply_dual_style(content, primary_color, secondary_color, primary_size, seco
 
 def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, color="white", 
             effect="fade", color2=None, size2=None, split_pos=0, highlight=False, 
-            keyword_size=None, per_line=False):
+            keyword_size=None, per_line=False, dict_file=None, skip_lines=None):
     """
     转换SRT到ASS，支持关键词高亮
     """
@@ -235,37 +267,77 @@ def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, 
         srt_content = f.read()
     subs = list(srt.parse(srt_content))
     
+    # 解析要跳过的行号
+    skip_lines_set = set()
+    if skip_lines:
+        try:
+            skip_lines_set = {int(x.strip()) for x in skip_lines.split(',')}
+            print(f"\n将跳过以下行号的分析：{sorted(skip_lines_set)}")
+        except ValueError as e:
+            print(f"警告：行号解析失败 ({e})，将不跳过任何行")
+            skip_lines_set = set()
+    
+    # 加载自定义词典（如果指定）
+    dict_keywords = {}
+    if dict_file:
+        dict_keywords = load_custom_dictionary(dict_file)
+        print(f"\n已从词典文件加载 {len(dict_keywords)} 个补充词")
+    
     # 如果启用高亮，预处理字幕文本以提取关键词
     keywords_dict = {}
     if highlight:
         if per_line:
             print("逐行分析关键词：")
-            # 每行字幕单独分析，提取一个最重要的词
-            for sub in subs:
+            # 每行字幕单独分析，提取关键词
+            for i, sub in enumerate(subs, 1):  # 从1开始计数，与SRT文件行号对应
+                # 如果当前行需要跳过分析
+                if i in skip_lines_set:
+                    print(f"  跳过第{i}行：{sub.content.replace(chr(10), ' ')}")
+                    continue
+                
+                # NLP分析
                 line_keywords = analyze_keywords(sub.content, top_k=1, min_word_len=2)
+                nlp_dict = {}
                 if line_keywords:
                     word, weight = line_keywords[0]
-                    keywords_dict[word] = weight
-                    color = "红色" if weight >= 0.5 else "黄色"
-                    print(f"  字幕：{sub.content.replace(chr(10), ' ')}")
-                    print(f"  关键词：{word} ({color}, 权重: {weight:.4f})")
+                    nlp_dict[word] = weight
                 else:
                     # 如果没有找到关键词，使用最长的词
                     word, weight = find_longest_word(sub.content)
                     if word:
-                        keywords_dict[word] = weight
-                        print(f"  字幕：{sub.content.replace(chr(10), ' ')}")
-                        print(f"  关键词：{word} (黄色, 权重: {weight:.4f}) [最长词]")
+                        nlp_dict[word] = weight
+                
+                # 合并NLP结果和词典词
+                line_dict = merge_keywords(nlp_dict, dict_keywords)
+                
+                # 更新全局关键词字典
+                keywords_dict.update(line_dict)
+                
+                # 打印分析结果
+                print(f"  第{i}行：{sub.content.replace(chr(10), ' ')}")
+                for word, weight in line_dict.items():
+                    source = "NLP分析" if word in nlp_dict else "词典补充"
+                    color = "红色" if weight >= 0.5 else "黄色"
+                    print(f"  关键词：{word} ({color}, 权重: {weight:.4f}) [{source}]")
                 print()
         else:
-            # 合并所有字幕文本进行整体分析
-            all_text = ' '.join(sub.content for sub in subs)
-            keywords = analyze_keywords(all_text, top_k=5, min_word_len=2)  # 提取前5个关键词
-            keywords_dict = {word: weight for word, weight in keywords}
-            print("整体分析关键词（红色为重要，黄色为次要）：")
-            for word, weight in keywords:
+            # 合并所有非跳过行的字幕文本进行整体分析
+            all_text = ' '.join(sub.content for i, sub in enumerate(subs, 1) 
+                              if i not in skip_lines_set)
+            nlp_keywords = analyze_keywords(all_text, top_k=5, min_word_len=2)  # 提取前5个关键词
+            nlp_dict = {word: weight for word, weight in nlp_keywords}
+            
+            # 合并NLP结果和词典词
+            keywords_dict = merge_keywords(nlp_dict, dict_keywords)
+            
+            # 打印分析结果
+            print("关键词分析结果：")
+            if skip_lines_set:
+                print(f"（已跳过第 {', '.join(map(str, sorted(skip_lines_set)))} 行的分析）")
+            for word, weight in keywords_dict.items():
+                source = "NLP分析" if word in nlp_dict else "词典补充"
                 color = "红色" if weight >= 0.5 else "黄色"
-                print(f"  {word}: {weight:.4f} ({color})")
+                print(f"  {word}: {weight:.4f} ({color}) [{source}]")
     
     # 设置关键词字体大小
     if keyword_size is None:
@@ -274,9 +346,6 @@ def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, 
     # 获取颜色代码
     primary_color = COLORS.get(color.lower(), COLORS["white"])
     secondary_color = COLORS.get(color2.lower(), primary_color) if color2 else primary_color
-    
-    # 获取字体大小
-    secondary_size = size2 if size2 else font_size
     
     # 获取动画效果函数
     effect_func = EFFECTS.get(effect.lower(), EFFECTS["fade"])
@@ -288,7 +357,7 @@ def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, 
         alignment=alignment
     )]
     
-    for sub in subs:
+    for i, sub in enumerate(subs, 1):
         start = srt_time_to_ass(sub.start)
         end = srt_time_to_ass(sub.end)
         duration_ms = int((sub.end - sub.start).total_seconds() * 1000)
@@ -298,11 +367,15 @@ def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, 
         
         # 处理文本样式
         if highlight:
-            # 使用NLP处理添加关键词高亮
-            content = process_subtitle_text(content, keywords_dict, font_size, keyword_size)
+            # 如果是跳过的行，使用普通样式
+            if i in skip_lines_set:
+                content = f"{{\\c{primary_color}\\fs{font_size}}}{content}"
+            else:
+                # 使用NLP处理添加关键词高亮
+                content = process_subtitle_text(content, keywords_dict, font_size, keyword_size)
         elif (color2 or size2) and split_pos > 0:
             # 使用传统的双重样式
-            content = apply_dual_style(content, primary_color, secondary_color, font_size, secondary_size, split_pos)
+            content = apply_dual_style(content, primary_color, secondary_color, font_size, size2, split_pos)
         else:
             # 使用单一样式
             content = f"{{\\c{primary_color}\\fs{font_size}}}{content}"
@@ -323,43 +396,57 @@ def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, 
         f.write('\n'.join(ass_lines))
     print(f"\n转换完成: {ass_path}")
     if highlight:
-        print(f"已启用关键词高亮功能 ({'逐行分析' if per_line else '整体分析'})")
+        mode = "逐行分析" if per_line else "整体分析"
+        sources = []
+        if dict_file:
+            sources.append("词典补充")
+        sources.append("NLP分析")
+        print(f"已启用关键词高亮功能（{mode} + {' + '.join(sources)}）")
+        if skip_lines_set:
+            print(f"已跳过第 {', '.join(map(str, sorted(skip_lines_set)))} 行的分析")
         print(f"普通文字大小: {font_size}")
         print(f"关键词大小: {keyword_size}")
     else:
-        print(f"使用字体: {font_name}, 大小1: {font_size}, 大小2: {secondary_size}, "
+        print(f"使用字体: {font_name}, 大小1: {font_size}, 大小2: {size2}, "
               f"颜色1: {color}, 颜色2: {color2}, 分割位置: {split_pos}, "
               f"对齐: {alignment}, 特效: {effect}")
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="SRT转ASS并添加特效")
-    parser.add_argument('srt_path', help='输入SRT文件')
-    parser.add_argument('ass_path', help='输出ASS文件')
-    parser.add_argument('--align', type=int, default=5, choices=range(1,10), 
-                      help='字幕对齐方式，1~9，默认5（正中间）')
-    parser.add_argument('--font', type=str, default="行书", 
-                      help='字幕字体，默认行书。常用：行书、楷体、KaiTi、KaiTi_GB2312、STKaiti、Microsoft YaHei')
-    parser.add_argument('--size', type=int, default=100, help='字体大小，默认100')
-    parser.add_argument('--color', type=str, default="white", choices=list(COLORS.keys()),
-                      help='字体颜色，可选：' + ', '.join(COLORS.keys()) + '，默认white')
-    parser.add_argument('--effect', type=str, default="fade", choices=list(EFFECTS.keys()),
-                      help='动画效果，可选：' + ', '.join(EFFECTS.keys()) + '，默认fade')
-    parser.add_argument('--color2', type=str, choices=list(COLORS.keys()),
-                      help='第二种字体颜色，如果不指定则整行使用相同颜色')
-    parser.add_argument('--size2', type=int,
-                      help='第二部分文字的大小，如果不指定则使用与第一部分相同的大小')
-    parser.add_argument('--split', type=int, default=0,
-                      help='分割位置（第几个字符后改变样式），默认0表示不分割')
-    parser.add_argument('--highlight', action='store_true',
-                      help='启用关键词高亮功能，自动识别重要词语并使用不同颜色突出显示')
-    parser.add_argument('--keyword-size', type=int,
-                      help='关键词的字体大小，默认比普通文字大20%')
-    parser.add_argument('--per-line', action='store_true',
-                      help='启用逐行关键词分析，每行字幕提取一个最重要的词')
+def main():
+    parser = argparse.ArgumentParser(description='将SRT字幕转换为ASS字幕，并添加特效')
+    parser.add_argument('input', help='输入的SRT文件路径')
+    parser.add_argument('output', help='输出的ASS文件路径')
+    parser.add_argument('--font', default='行书', help='字体名称')
+    parser.add_argument('--size', type=int, default=100, help='字体大小')
+    parser.add_argument('--align', type=int, choices=range(1,10), default=5, help='对齐方式(1-9)')
+    parser.add_argument('--color', default='white', help='字体颜色')
+    parser.add_argument('--effect', default='fade', help='动画效果')
+    parser.add_argument('--color2', help='第二种颜色（用于双重样式）')
+    parser.add_argument('--size2', type=int, help='第二种字体大小（用于双重样式）')
+    parser.add_argument('--split', type=int, default=0, help='颜色分割位置（用于双重样式）')
+    parser.add_argument('--highlight', action='store_true', help='启用关键词高亮')
+    parser.add_argument('--keyword-size', type=int, help='关键词字体大小')
+    parser.add_argument('--per-line', action='store_true', help='逐行分析关键词')
+    parser.add_argument('--dict-file', help='补充词典文件路径')
+    parser.add_argument('--skip-lines', help='要跳过分析的行号列表，用逗号分隔（如"1,3,5"）')
     
     args = parser.parse_args()
-    srt2ass(args.srt_path, args.ass_path, font_size=args.size, font_name=args.font, 
-            alignment=args.align, color=args.color, effect=args.effect,
-            color2=args.color2, size2=args.size2, split_pos=args.split,
-            highlight=args.highlight, keyword_size=args.keyword_size,
-            per_line=args.per_line) 
+    
+    srt2ass(
+        args.input, args.output,
+        font_size=args.size,
+        font_name=args.font,
+        alignment=args.align,
+        color=args.color,
+        effect=args.effect,
+        color2=args.color2,
+        size2=args.size2,
+        split_pos=args.split,
+        highlight=args.highlight,
+        keyword_size=args.keyword_size,
+        per_line=args.per_line,
+        dict_file=args.dict_file,
+        skip_lines=args.skip_lines
+    )
+
+if __name__ == "__main__":
+    main() 
