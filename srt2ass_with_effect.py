@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-将SRT字幕转换为ASS字幕，并为字幕添加复杂淡入淡出特效（动态调整）。
-支持通过--align参数指定字幕对齐方式，--font参数指定字体，--size参数指定字体大小，--color参数指定字体颜色。
-用法：python3 srt2ass_with_effect.py input.srt output.ass [--align 5] [--font "行书"] [--size 100] [--color white]
+将SRT字幕转换为ASS字幕，并为字幕添加复杂特效。
+支持通过--align参数指定字幕对齐方式，--font参数指定字体，--size参数指定字体大小，--color参数指定字体颜色，--effect参数指定动画效果。
+用法：python3 srt2ass_with_effect.py input.srt output.ass [--align 5] [--font "行书"] [--size 100] [--color white] [--effect fade]
 """
 import sys
 import os
 import srt
 from datetime import timedelta
 import argparse
+import math
 
 # 预定义的颜色（BGR格式）
 COLORS = {
@@ -25,6 +26,65 @@ COLORS = {
     "purple": "&H00FF0080",   # 紫色
 }
 
+# 视频分辨率
+VIDEO_WIDTH = 1920
+VIDEO_HEIGHT = 1080
+
+def get_center_pos():
+    """获取屏幕中心坐标"""
+    return VIDEO_WIDTH // 2, VIDEO_HEIGHT // 2
+
+# 预定义的动画效果
+EFFECTS = {
+    "fade": lambda duration_ms, align_tag: (
+        f"{{{align_tag}\\fade(255,0,255,0,500,{duration_ms-500},{duration_ms})\\bord3\\shad2}}"
+    ),
+    "move_right": lambda duration_ms, align_tag: (
+        f"{{{align_tag}\\move({VIDEO_WIDTH//4},{VIDEO_HEIGHT//2},{VIDEO_WIDTH*3//4},{VIDEO_HEIGHT//2})\\bord3\\shad2}}"
+    ),
+    "move_left": lambda duration_ms, align_tag: (
+        f"{{{align_tag}\\move({VIDEO_WIDTH*3//4},{VIDEO_HEIGHT//2},{VIDEO_WIDTH//4},{VIDEO_HEIGHT//2})\\bord3\\shad2}}"
+    ),
+    "move_up": lambda duration_ms, align_tag: (
+        f"{{{align_tag}\\move({VIDEO_WIDTH//2},{VIDEO_HEIGHT*3//4},{VIDEO_WIDTH//2},{VIDEO_HEIGHT//4})\\bord3\\shad2}}"
+    ),
+    "move_down": lambda duration_ms, align_tag: (
+        f"{{{align_tag}\\move({VIDEO_WIDTH//2},{VIDEO_HEIGHT//4},{VIDEO_WIDTH//2},{VIDEO_HEIGHT*3//4})\\bord3\\shad2}}"
+    ),
+    "zoom": lambda duration_ms, align_tag: (
+        f"{{{align_tag}\\t(0,{duration_ms},\\fscx120\\fscy120)\\bord3\\shad2}}"
+    ),
+    "rotate": lambda duration_ms, align_tag: (
+        f"{{{align_tag}\\org({VIDEO_WIDTH//2},{VIDEO_HEIGHT//2})\\t(0,{duration_ms},\\frz360)\\bord3\\shad2}}"
+    ),
+    "shake": lambda duration_ms, align_tag: (
+        # 使用\pos设置初始位置，然后用\t和\frx实现快速抖动
+        f"{{{align_tag}\\pos({VIDEO_WIDTH//2},{VIDEO_HEIGHT//2})"
+        f"\\t(0,{duration_ms//16},\\frx8)\\t({duration_ms//16},{duration_ms//8},\\frx-8)"
+        f"\\t({duration_ms//8},{duration_ms*3//16},\\frx8)\\t({duration_ms*3//16},{duration_ms//4},\\frx-8)"
+        f"\\t({duration_ms//4},{duration_ms*5//16},\\frx8)\\t({duration_ms*5//16},{duration_ms*3//8},\\frx-8)"
+        f"\\t({duration_ms*3//8},{duration_ms*7//16},\\frx8)\\t({duration_ms*7//16},{duration_ms//2},\\frx-8)"
+        f"\\t({duration_ms//2},{duration_ms*9//16},\\frx8)\\t({duration_ms*9//16},{duration_ms*5//8},\\frx-8)"
+        f"\\t({duration_ms*5//8},{duration_ms*11//16},\\frx8)\\t({duration_ms*11//16},{duration_ms*3//4},\\frx-8)"
+        f"\\t({duration_ms*3//4},{duration_ms*13//16},\\frx8)\\t({duration_ms*13//16},{duration_ms*7//8},\\frx-8)"
+        f"\\t({duration_ms*7//8},{duration_ms*15//16},\\frx8)\\t({duration_ms*15//16},{duration_ms},\\frx0)\\bord3\\shad2}}"
+    ),
+    "wave": lambda duration_ms, align_tag: (
+        # 使用更快的波浪效果，增加旋转角度
+        f"{{{align_tag}\\pos({VIDEO_WIDTH//2},{VIDEO_HEIGHT//2})"
+        f"\\t(0,{duration_ms//8},\\frz8)\\t({duration_ms//8},{duration_ms//4},\\frz-8)"
+        f"\\t({duration_ms//4},{duration_ms*3//8},\\frz8)\\t({duration_ms*3//8},{duration_ms//2},\\frz-8)"
+        f"\\t({duration_ms//2},{duration_ms*5//8},\\frz8)\\t({duration_ms*5//8},{duration_ms*3//4},\\frz-8)"
+        f"\\t({duration_ms*3//4},{duration_ms*7//8},\\frz8)\\t({duration_ms*7//8},{duration_ms},\\frz0)\\bord3\\shad2}}"
+    ),
+    "bounce": lambda duration_ms, align_tag: (
+        f"{{{align_tag}\\move({VIDEO_WIDTH//2},{VIDEO_HEIGHT//2-50},{VIDEO_WIDTH//2},{VIDEO_HEIGHT//2},0.5,1)\\bord3\\shad2}}"
+    ),
+    "none": lambda duration_ms, align_tag: (
+        f"{{{align_tag}\\pos({VIDEO_WIDTH//2},{VIDEO_HEIGHT//2})\\bord3\\shad2}}"
+    ),
+}
+
 def srt_time_to_ass(ts: timedelta) -> str:
     total_seconds = int(ts.total_seconds())
     hours = total_seconds // 3600
@@ -37,8 +97,8 @@ def generate_ass_header(font_name="行书", font_size=100, primary_color="&H00FF
     # Alignment: 1=左下, 2=中下, 3=右下, 4=左中, 5=正中, 6=右中, 7=左上, 8=中上, 9=右上
     return f"""[Script Info]
 ScriptType: v4.00+
-PlayResX: 1920
-PlayResY: 1080
+PlayResX: {VIDEO_WIDTH}
+PlayResY: {VIDEO_HEIGHT}
 WrapStyle: 2
 ScaledBorderAndShadow: yes
 
@@ -50,9 +110,11 @@ Style: Default,{font_name},{font_size},{primary_color},&H000000FF,{outline_color
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
 
-def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, color="white"):
+def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, color="white", effect="fade"):
     # 获取颜色代码，如果不在预定义颜色中，默认使用白色
     primary_color = COLORS.get(color.lower(), COLORS["white"])
+    # 获取动画效果函数，如果不在预定义效果中，默认使用淡入淡出
+    effect_func = EFFECTS.get(effect.lower(), EFFECTS["fade"])
     
     with open(srt_path, 'r', encoding='utf-8') as f:
         srt_content = f.read()
@@ -69,23 +131,22 @@ def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, 
         start = srt_time_to_ass(sub.start)
         end = srt_time_to_ass(sub.end)
         duration_ms = int((sub.end - sub.start).total_seconds() * 1000)
-        # 动态设置淡入淡出时间（最大500ms，且不超过字幕时长的1/4）
-        fade_in = min(500, duration_ms // 4)
-        fade_out = min(500, duration_ms // 4)
-        fade_start = 0
-        fade_end = duration_ms
+        
         # 强制加\anX对齐标签
         align_tag = f"\\an{alignment}"
-        # ASS复杂淡入淡出特效
-        fade_tag = f"{{{align_tag}\\fade(255,0,255,{fade_start},{fade_in},{fade_end-fade_out},{fade_end})\\bord3\\shad2}}"
-        text = fade_tag + sub.content.replace('\n', '\\N')
+        
+        # 应用选择的动画效果
+        effect_tag = effect_func(duration_ms, align_tag)
+        
+        # 替换文本中的换行符
+        text = effect_tag + sub.content.replace('\n', '\\N')
         dialogue = f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}"
         ass_lines.append(dialogue)
     
     with open(ass_path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(ass_lines))
     print(f"转换完成: {ass_path}")
-    print(f"使用字体: {font_name}, 大小: {font_size}, 颜色: {color}, 对齐: {alignment}")
+    print(f"使用字体: {font_name}, 大小: {font_size}, 颜色: {color}, 对齐: {alignment}, 特效: {effect}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SRT转ASS并添加特效")
@@ -96,5 +157,8 @@ if __name__ == "__main__":
     parser.add_argument('--size', type=int, default=100, help='字体大小，默认100')
     parser.add_argument('--color', type=str, default="white", choices=list(COLORS.keys()),
                       help='字体颜色，可选：' + ', '.join(COLORS.keys()) + '，默认white')
+    parser.add_argument('--effect', type=str, default="fade", choices=list(EFFECTS.keys()),
+                      help='动画效果，可选：' + ', '.join(EFFECTS.keys()) + '，默认fade')
     args = parser.parse_args()
-    srt2ass(args.srt_path, args.ass_path, font_size=args.size, font_name=args.font, alignment=args.align, color=args.color) 
+    srt2ass(args.srt_path, args.ass_path, font_size=args.size, font_name=args.font, 
+            alignment=args.align, color=args.color, effect=args.effect) 
