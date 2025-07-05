@@ -13,6 +13,7 @@ content_video_srt=$filename"_video_srt.mp4"
 content_video_bg_srt=$filename"_video_bg_srt.mp4"
 content_video_bg_srt_ass=$filename"_video_bg_srt_ass.mp4"
 content_video_bg_srt_ass_header=$filename"_video_bg_srt_ass_header.mp4"
+content_video_bg_srt_ass_header_bgm=$filename"_video_bg_srt_ass_header_bgm.mp4"
 #srt
 src_srt=$filename"_srt.srt"
 corrected_srt=$filename"_srt_corrected.srt"
@@ -144,4 +145,15 @@ function video_bg_srt_ass_header_gen() {
     #ffmpeg -i out1.mp4 -vf "drawtext=text='@版权所有':fontfile=./font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white@0.8:x=W-tw-10:y=10:shadowcolor=black:shadowx=2:shadowy=2" out2.mp4
 }
 
-video_bg_srt_ass_header_gen
+#video_bg_srt_ass_header_gen
+
+function video_add_bgm() {
+    # 循环背景音乐，音量20%，3秒淡入淡出
+    rm -f $content_video_bg_srt_ass_header_bgm
+    sh add_bgm.sh -v 0.4 -l -f 1 -F 1 $content_video_bg_srt_ass_header $bgm_file $content_video_bg_srt_ass_header_bgm
+}
+
+#add_bgm_rotate
+#exit 0
+
+video_add_bgm
