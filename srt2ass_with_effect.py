@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 """
 将SRT字幕转换为ASS字幕，并为字幕添加复杂特效。
-支持通过--align参数指定字幕对齐方式，--font参数指定字体，--size参数指定字体大小，--color参数指定字体颜色，--effect参数指定动画效果。
-支持通过--color2参数指定第二种颜色，--size2参数指定第二部分文字大小，--split参数指定分割位置。
+支持通过--align参数指定字幕对齐方式，--font参数指定字体，--size参数指定字体大小，--color参数指定字体颜色。
+支持通过--effect参数指定单一动画效果，或通过--effects参数指定多个动画效果（用逗号分隔，如"fade,move,scale"）进行轮播。
 支持通过--highlight参数启用关键词高亮功能，使用NLP技术自动识别重要词语并突出显示。
 支持通过--keyword-size参数指定关键词的字体大小（默认比普通文字大20%）。
 支持通过--per-line参数启用逐行关键词分析（每行字幕提取最重要的词）。
 支持通过--dict-file参数指定补充词典文件，文件中每行一个词，这些词会作为NLP分析的补充被高亮显示。
 支持通过--skip-lines参数指定要跳过分析的字幕行号（从1开始），多个行号用逗号分隔。
-用法：python3 srt2ass_with_effect.py input.srt output.ass [--align 5] [--font "行书"] [--size 100] [--color white] [--effect fade] [--highlight] [--keyword-size 120] [--per-line] [--dict-file words.txt] [--skip-lines "1,3,5"]
+用法：python3 srt2ass_with_effect.py input.srt output.ass [--align 5] [--font "行书"] [--size 100] [--color white] [--effects "fade,move,scale"] [--highlight] [--keyword-size 120] [--per-line] [--dict-file words.txt] [--skip-lines "1,3,5"]
 """
 import sys
 import os
@@ -258,14 +258,33 @@ def apply_dual_style(content, primary_color, secondary_color, primary_size, seco
     return f"{{\\c{primary_color}\\fs{primary_size}}}{first_part}{{\\c{secondary_color}\\fs{secondary_size}}}{second_part}"
 
 def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, color="white", 
-            effect="fade", color2=None, size2=None, split_pos=0, highlight=False, 
+            effect="fade", effects=None, color2=None, size2=None, split_pos=0, highlight=False, 
             keyword_size=None, per_line=False, dict_file=None, skip_lines=None):
     """
-    转换SRT到ASS，支持关键词高亮
+    转换SRT到ASS，支持关键词高亮和动画效果轮播
     """
     with open(srt_path, 'r', encoding='utf-8') as f:
         srt_content = f.read()
     subs = list(srt.parse(srt_content))
+    
+    # 解析动画效果列表
+    effect_list = []
+    if effects:
+        # 解析多个效果
+        for e in effects.split(','):
+            e = e.strip().lower()
+            if e in EFFECTS:
+                effect_list.append(e)
+            else:
+                print(f"警告：未知的动画效果 '{e}'，将被忽略")
+        if not effect_list:
+            print(f"警告：没有有效的动画效果，将使用默认效果 '{effect}'")
+            effect_list = [effect]
+    else:
+        # 使用单一效果
+        effect_list = [effect]
+    
+    print(f"\n动画效果轮播顺序：{' → '.join(effect_list)}")
     
     # 解析要跳过的行号
     skip_lines_set = set()
@@ -347,9 +366,6 @@ def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, 
     primary_color = COLORS.get(color.lower(), COLORS["white"])
     secondary_color = COLORS.get(color2.lower(), primary_color) if color2 else primary_color
     
-    # 获取动画效果函数
-    effect_func = EFFECTS.get(effect.lower(), EFFECTS["fade"])
-    
     ass_lines = [generate_ass_header(
         font_name=font_name,
         font_size=font_size,
@@ -380,6 +396,10 @@ def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, 
             # 使用单一样式
             content = f"{{\\c{primary_color}\\fs{font_size}}}{content}"
         
+        # 获取当前行的动画效果（轮播）
+        current_effect = effect_list[(i - 1) % len(effect_list)]
+        effect_func = EFFECTS[current_effect]
+        
         # 强制加\anX对齐标签和动画效果
         effect_tag = effect_func(duration_ms, f"\\an{alignment}")
         
@@ -409,7 +429,11 @@ def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, 
     else:
         print(f"使用字体: {font_name}, 大小1: {font_size}, 大小2: {size2}, "
               f"颜色1: {color}, 颜色2: {color2}, 分割位置: {split_pos}, "
-              f"对齐: {alignment}, 特效: {effect}")
+              f"对齐: {alignment}")
+        if effects:
+            print(f"动画效果轮播：{' → '.join(effect_list)}")
+        else:
+            print(f"动画效果：{effect}")
 
 def main():
     parser = argparse.ArgumentParser(description='将SRT字幕转换为ASS字幕，并添加特效')
@@ -419,7 +443,8 @@ def main():
     parser.add_argument('--size', type=int, default=100, help='字体大小')
     parser.add_argument('--align', type=int, choices=range(1,10), default=5, help='对齐方式(1-9)')
     parser.add_argument('--color', default='white', help='字体颜色')
-    parser.add_argument('--effect', default='fade', help='动画效果')
+    parser.add_argument('--effect', default='fade', help='单一动画效果')
+    parser.add_argument('--effects', help='多个动画效果，用逗号分隔（如"fade,move,scale"）')
     parser.add_argument('--color2', help='第二种颜色（用于双重样式）')
     parser.add_argument('--size2', type=int, help='第二种字体大小（用于双重样式）')
     parser.add_argument('--split', type=int, default=0, help='颜色分割位置（用于双重样式）')
@@ -438,6 +463,7 @@ def main():
         alignment=args.align,
         color=args.color,
         effect=args.effect,
+        effects=args.effects,
         color2=args.color2,
         size2=args.size2,
         split_pos=args.split,
