@@ -1,6 +1,6 @@
 data_dir=jiqimao
-voice=qinghuanv
-name=kumi的成长日记
+voice=dushunan
+name=kumi的读书日记
 filename=$data_dir/result
 #content
 content_file=$filename"_text_rewrite.txt"
@@ -24,11 +24,38 @@ sentence_mapping_file=$filename"_srt_stc_mapping.txt"
 #pic
 local_pic=picture/doutu/013.jpg
 #content_pic=$filename"_pic.jpeg"
+#cover
 content_pic=$data_dir/pic_cover_0.jpg
+cover_pic_dir=cover
+cover_pic=$cover_pic_dir/cover_pic.jpg
+cover_pic_text=$cover_pic_dir/cover_pic_text.jpg
+cover_pic_first=$cover_pic_dir/cover_pic_first.jpg
+cover_pic_text_first=$cover_pic_dir/cover_pic_text_first.jpg
+cover_pic_video=$cover_pic_dir/cover_pic_video.mp4
+cover_video_ass=$cover_pic_dir/cover_video_ass.mp4
+cover_voice_file=$cover_pic_dir/cover.wav
+cover_voice_srt=$cover_pic_dir/cover_voice_srt.srt
+cover_voice_srt_ass=$cover_pic_dir/cover_voice_srt_ass.ass
+cover_video_wav=$cover_pic_dir/cover_video_wav.mp3
 #wav
 uuid=result
 voice_file=$data_dir/$uuid.wav
 bgm_file=bgm/8.wav
+
+function cover_video_gen() {
+    #使用ffmpeg在一张图片上生成多个文字，每个文字使用不同的字体、颜色、大小、位置
+    rm -f $cover_pic_text
+    ffmpeg -i $cover_pic -vf "drawtext=text='《$(cat $title_file)》':fontfile=./font/Aa剑豪体.ttf:fontsize=160:fontcolor=black@0.8:x=(W-tw)/2:y=100:" $cover_pic_text
+    rm -f $cover_pic_text_first
+    ffmpeg -i $cover_pic_first -vf "drawtext=text='《$(cat $title_file)》':fontfile=./font/Aa剑豪体.ttf:fontsize=160:fontcolor=black@0.8:x=(W-tw)/2:y=100:" $cover_pic_text_first
+    #使用ffmpeg生成一秒的视频，视频内容为cover_pic_text_first，视频时长为1秒，图片效果为fade
+    rm -f $cover_pic_video
+    #在视频滤镜中添加了淡出效果：fade=t=out:st=2:d=1
+    #t=out：指定淡出效果
+    #st=2：淡出效果从第2秒开始
+    #d=1：淡出效果持续1秒
+    ffmpeg -loop 1 -i $cover_pic_text_first -t 2 -c:v libx264 -pix_fmt yuv420p -vf "scale=1920:1080,fade=t=out:st=1:d=1" $cover_pic_video
+}
 
 # 获取内容图片
 function content_pic_get() {
@@ -44,6 +71,28 @@ function voice_gen() {
     python clone_voice.py -f $content_file_fix -o $uuid -v $voice
 }
 
+# 提交获取语音任务
+function cover_voice_gen() {
+    wavfile=cover/cover.wav
+    #提交语音生成任务
+    python clone_voice.py -f cover/cover.txt -o $uuid -v $wavfile
+    #下载语音
+    rm -f $wavfile
+    while true; do
+        if [ ! -f $wavfile ]; then
+            python download_wavs.py 4 --delete-after-download -d cover
+        else
+            echo "语音文件已存在"
+            break
+        fi
+        sleep 10
+    done
+    #合并语音
+    #ffmpeg -i $voice_file -i $cover_pic_video -c:v libx264 -c:a aac -strict experimental -shortest $content_video_bgm
+    #合并字幕
+    #ffmpeg -i $content_video_bgm -vf "ass=$srt_ass:fontsdir=./font" -c:a copy $content_video_bgm_ass
+}
+
 function download_wavs() {
     #下载语音
     rm -f $voice_file
@@ -56,6 +105,24 @@ function download_wavs() {
         fi
         sleep 10
     done
+}
+
+function cover_srt_gen() {
+    #生成语音
+    #cover_voice_gen
+    #cover_video_gen
+    #生成字幕
+    #rm -f $cover_voice_srt
+    #python srt_gen.py $cover_voice_file $cover_voice_srt 
+    #生成图片视频
+    rm -f $cover_pic_video
+    sh image_to_video.sh $cover_pic_text_first $cover_voice_file $cover_pic_video -e zoom_in -s 2.0 --final-zoom 2.0
+    #生成ass文件
+    rm -f $cover_voice_srt_ass
+    python3 srt2ass_with_effect.py $cover_voice_srt $cover_voice_srt_ass --align 2 --font "鸿雷板书简体-正式版" --size 120 --color white  
+    #mp4合并ass
+    rm -f $cover_video_ass
+    ffmpeg -i $cover_pic_video -vf "ass=$cover_voice_srt_ass:fontsdir=./font" -c:a copy $cover_video_ass
 }
 
 #voice_gen
