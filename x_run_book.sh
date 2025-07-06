@@ -26,17 +26,7 @@ local_pic=picture/doutu/013.jpg
 #content_pic=$filename"_pic.jpeg"
 #cover
 content_pic=$data_dir/pic_cover_0.jpg
-cover_pic_dir=cover
-cover_pic=$cover_pic_dir/cover_pic.jpg
-cover_pic_text=$cover_pic_dir/cover_pic_text.jpg
-cover_pic_first=$cover_pic_dir/cover_pic_first.jpg
-cover_pic_text_first=$cover_pic_dir/cover_pic_text_first.jpg
-cover_pic_video=$cover_pic_dir/cover_pic_video.mp4
-cover_video_ass=$cover_pic_dir/cover_video_ass.mp4
-cover_voice_file=$cover_pic_dir/cover.wav
-cover_voice_srt=$cover_pic_dir/cover_voice_srt.srt
-cover_voice_srt_ass=$cover_pic_dir/cover_voice_srt_ass.ass
-cover_video_wav=$cover_pic_dir/cover_video_wav.mp3
+
 #wav
 uuid=result
 voice_file=$data_dir/$uuid.wav
@@ -73,14 +63,20 @@ function voice_gen() {
 
 # 提交获取语音任务
 function cover_voice_gen() {
-    wavfile=cover/cover.wav
+    clear_audio_data
+    text=$1
+    name=$2
+    mkdir -p $name
+    wavfile=$name/result.wav
+    rm -f $wavfile
+    echo $text > $name/$name.txt
     #提交语音生成任务
-    python clone_voice.py -f cover/cover.txt -o $uuid -v $wavfile
+    python clone_voice.py -f $name/$name.txt -o $uuid -v $voice
     #下载语音
     rm -f $wavfile
     while true; do
         if [ ! -f $wavfile ]; then
-            python download_wavs.py 4 --delete-after-download -d cover
+            python download_wavs.py 4 --delete-after-download -d $name
         else
             echo "语音文件已存在"
             break
@@ -108,12 +104,28 @@ function download_wavs() {
 }
 
 function cover_srt_gen() {
+    dir=$1
+    text=$2
+    cover_pic_dir=$dir
+    cover_pic=$cover_pic_dir/cover_pic.jpg
+    cover_pic_text=$cover_pic_dir/cover_pic_text.jpg
+    cover_pic_first=$cover_pic_dir/cover_pic_first.jpg
+    cover_pic_text_first=$cover_pic_dir/cover_pic_text_first.jpg
+    cover_pic_video=$cover_pic_dir/cover_pic_video.mp4
+    cover_video_ass=$cover_pic_dir/cover_video_ass.mp4
+    cover_voice_file=$cover_pic_dir/result.wav
+    cover_voice_srt=$cover_pic_dir/cover_voice_srt.srt
+    cover_voice_srt_ass=$cover_pic_dir/cover_voice_srt_ass.ass
+    cover_video_wav=$cover_pic_dir/cover_video_wav.mp3
+
+    mkdir -p $cover_pic_dir
+    cp cover/cover_pic_text_first.jpg $cover_pic_text_first
+
     #生成语音
-    #cover_voice_gen
-    #cover_video_gen
+    cover_voice_gen $text $cover_pic_dir
     #生成字幕
-    #rm -f $cover_voice_srt
-    #python srt_gen.py $cover_voice_file $cover_voice_srt 
+    rm -f $cover_voice_srt
+    python srt_gen.py $cover_voice_file $cover_voice_srt 
     #生成图片视频
     rm -f $cover_pic_video
     sh image_to_video.sh $cover_pic_text_first $cover_voice_file $cover_pic_video -e zoom_in -s 2.0 --final-zoom 2.0
@@ -123,6 +135,11 @@ function cover_srt_gen() {
     #mp4合并ass
     rm -f $cover_video_ass
     ffmpeg -i $cover_pic_video -vf "ass=$cover_voice_srt_ass:fontsdir=./font" -c:a copy $cover_video_ass
+}
+
+function cover_video_gen_all() {
+    #cover_srt_gen "aaa" "今天我们分享的是"
+    cover_srt_gen "bbb" "余华老师的《活着》"
 }
 
 #voice_gen
