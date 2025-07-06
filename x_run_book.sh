@@ -117,7 +117,7 @@ function srt_ass_gen() {
     #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect move_up
     #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect move_down
     #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect move_right
-    python3 srt2ass_with_effect.py $src_srt $srt_ass --align 5 --font "鸿雷板书简体-正式版" --size 120 --color white  --effect zoom
+    python3 srt2ass_with_effect.py $corrected_srt $srt_ass --align 5 --font "鸿雷板书简体-正式版" --size 120 --color white  --effect zoom
 }
 
 #srt_ass_gen
@@ -193,8 +193,12 @@ function gen_video() {
         run_flag="content_rewrite"
     elif [ "$arg" == "wav" ]; then
         run_flag="clear_audio_data|voice_gen|download_wavs"
+    elif [ "$arg" == "sg" ]; then
+        run_flag="srt_gen"
     elif [ "$arg" == "sf" ]; then
-        run_flag="srt_gen|srt_fix"
+        run_flag="srt_fix"
+    elif [ "$arg" == "sa" ]; then
+        run_flag="srt_ass_gen"
     elif [ "$arg" == "video" ]; then
         run_flag="content_video_pic_gen|video_bg_srt_gen|video_bg_srt_ass_gen|video_bg_srt_ass_header_gen|video_add_bgm"
     else
