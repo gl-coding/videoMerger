@@ -139,13 +139,16 @@ function cover_srt_gen() {
 }
 
 function cover_video_gen_all() {
-    #cover_srt_gen "aaa" "今天我们分享的是"
-    #cover_srt_gen "bbb" "余华老师的《活着》"
-    #ffmpeg -i "concat:aaa/cover_video_ass.mp4|bbb/cover_video_ass.mp4" -c copy output.mp4
+    # 生成封面视频
+    cover_srt_gen "aaa" "今天我们分享的是"
+    cover_srt_gen "bbb" "余华老师的《活着》"
+
+    # 合并封面视频
     echo "file 'aaa/cover_video_ass.mp4'" > cover_list.txt
     echo "file 'bbb/cover_video_ass.mp4'" >> cover_list.txt
     
     # 合并视频
+    rm -f merged_cover.mp4
     ffmpeg -f concat -safe 0 -i cover_list.txt -c copy merged_cover.mp4
     
     echo "封面视频合并完成: cover/merged_cover.mp4"
