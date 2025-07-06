@@ -8,6 +8,7 @@ import re
 import os
 import argparse
 import sys
+import difflib
 
 def preprocess_text(text):
     """预处理文本，标准化但保留句子结构"""
@@ -345,7 +346,10 @@ def print_low_similarity_mappings(mappings, threshold=0.8):
     print("-" * 80)
     low_similarity_count = 0
     
-    for subtitle_text, original_segment, char_diff, similarity, original_sentence in mappings:
+    for mapping in mappings:
+        subtitle_text, original_segment, char_diff, similarity = mapping[0], mapping[1], mapping[2], mapping[3]
+        original_sentence, prev_sentence, next_sentence = mapping[4], mapping[5], mapping[6]
+        
         if similarity < threshold:
             low_similarity_count += 1
             print(f"字幕: {subtitle_text}")
@@ -353,9 +357,117 @@ def print_low_similarity_mappings(mappings, threshold=0.8):
             print(f"字符差值: {char_diff}")
             print(f"相似度: {similarity:.2f}")
             print(f"原文长句: {original_sentence}")
+            print(f"前一句: {prev_sentence}")
+            print(f"后一句: {next_sentence}")
             print("-" * 80)
     
     print(f"总共有 {low_similarity_count} 个相似度低于 {threshold} 的映射")
+
+def find_context_sentences(original_text, segment, original_sentence):
+    """找出原文短句在原文长句中的前一句和后一句"""
+    # 如果原文长句为空或与短句相同，直接返回null
+    if not original_sentence or original_sentence == segment:
+        return "null", "null"
+    
+    # 使用各种符号作为分隔符，包括引号
+    delimiters = '，；：、,.;:！？。!?."\'""'
+    
+    # 1. 首先确定短句在长句中的位置
+    start_pos = original_sentence.find(segment)
+    
+    # 如果直接查找失败，尝试清理后再查找
+    if start_pos == -1:
+        clean_segment = clean_text_for_comparison(segment)
+        clean_sentence = clean_text_for_comparison(original_sentence)
+        
+        if clean_segment not in clean_sentence:
+            return "null", "null"
+        
+        # 尝试在原句中找到最佳匹配位置
+        best_match_pos = -1
+        best_match_score = 0
+        
+        for i in range(len(original_sentence) - len(segment) + 1):
+            substr = original_sentence[i:i+len(segment)]
+            clean_substr = clean_text_for_comparison(substr)
+            
+            # 计算相似度
+            similarity = difflib.SequenceMatcher(None, clean_segment, clean_substr).ratio()
+            if similarity > best_match_score:
+                best_match_score = similarity
+                best_match_pos = i
+        
+        if best_match_score > 0.7:  # 设置一个相似度阈值
+            start_pos = best_match_pos
+        else:
+            return "null", "null"
+    
+    end_pos = start_pos + len(segment)
+    
+    # 2. 向前查找最近的分隔符
+    prev_delimiter_pos = -1
+    for i in range(start_pos - 1, -1, -1):
+        if original_sentence[i] in delimiters:
+            prev_delimiter_pos = i
+            break
+    
+    # 3. 向后查找最近的分隔符
+    next_delimiter_pos = len(original_sentence)
+    for i in range(end_pos, len(original_sentence)):
+        if original_sentence[i] in delimiters:
+            next_delimiter_pos = i
+            break
+    
+    # 4. 提取前一句和后一句
+    prev_sentence = "null"
+    if prev_delimiter_pos >= 0:
+        # 再向前找一个分隔符，确定前一句的开始位置
+        prev_start_pos = 0
+        for i in range(prev_delimiter_pos - 1, -1, -1):
+            if original_sentence[i] in delimiters:
+                prev_start_pos = i + 1
+                break
+        
+        prev_text = original_sentence[prev_start_pos:prev_delimiter_pos + 1].strip()
+        if prev_text:
+            prev_sentence = prev_text
+    
+    next_sentence = "null"
+    if next_delimiter_pos < len(original_sentence):
+        next_text = original_sentence[end_pos:next_delimiter_pos + 1].strip()
+        if next_text:
+            next_sentence = next_text
+    
+    return prev_sentence, next_sentence
+
+def find_original_text(original_text, clean_text):
+    """在原文中找到与清理后文本对应的原始文本"""
+    # 清理原文用于比较
+    clean_original = clean_text_for_comparison(original_text)
+    
+    # 在清理后的原文中找到清理后文本的位置
+    pos = clean_original.find(clean_text)
+    if pos == -1:
+        return ""
+    
+    # 计算原文中的对应位置
+    original_pos = 0
+    clean_pos = 0
+    while clean_pos < pos and original_pos < len(original_text):
+        if clean_text_for_comparison(original_text[original_pos]) != "":
+            clean_pos += 1
+        original_pos += 1
+    
+    # 从原文中提取对应的文本
+    start_pos = original_pos
+    clean_pos = 0
+    while clean_pos < len(clean_text) and original_pos < len(original_text):
+        if clean_text_for_comparison(original_text[original_pos]) != "":
+            clean_pos += 1
+        original_pos += 1
+    
+    end_pos = original_pos
+    return original_text[start_pos:end_pos].strip()
 
 def generate_sentence_mapping(original_text_path, srt_path, output_path, corrected_srt_path=None):
     """生成字幕文件语句和原文语句的映射文件，并可选择同时更正字幕"""
@@ -532,18 +644,25 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
                         # 重新计算字符数差异
                         char_diff = len(clean_segment) - len(clean_subtitle)
                 
-                sentence_mappings.append((subtitle_text, best_match_segment, char_diff, similarity, best_match_sentence))
+                # 找出前一句和后一句
+                prev_sentence, next_sentence = find_context_sentences(original_text, best_match_segment, best_match_sentence)
+                
+                sentence_mappings.append((subtitle_text, best_match_segment, char_diff, similarity, best_match_sentence, prev_sentence, next_sentence))
                 
                 # 保存字幕更正映射
                 subtitle_corrections[subtitle_text] = best_match_segment
     
     # 写入映射文件
     with open(output_path, 'w', encoding='utf-8') as f:
-        for subtitle_sentence, original_segment, char_diff, similarity, original_sentence in sentence_mappings:
+        for mapping in sentence_mappings:
+            subtitle_sentence, original_segment, char_diff, similarity, original_sentence, prev_sentence, next_sentence = mapping
+            
             # 替换制表符和换行符，避免格式混乱
             subtitle_sentence = subtitle_sentence.replace('\t', ' ').replace('\n', ' ')
             original_segment = original_segment.replace('\t', ' ').replace('\n', ' ')
             original_sentence = original_sentence.replace('\t', ' ').replace('\n', ' ')
+            prev_sentence = prev_sentence.replace('\t', ' ').replace('\n', ' ')
+            next_sentence = next_sentence.replace('\t', ' ').replace('\n', ' ')
             
             # 确保原文长句不包含多个句子（通过检查句号、感叹号、问号）
             if '。' in original_sentence or '！' in original_sentence or '？' in original_sentence:
@@ -556,7 +675,7 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
                 if sentence_end > 0:
                     original_sentence = original_sentence[:sentence_end+1]
             
-            f.write(f"{subtitle_sentence}\t{original_segment}\t{char_diff}\t{similarity:.2f}\t{original_sentence}\n")
+            f.write(f"{subtitle_sentence}\t{original_segment}\t{char_diff}\t{similarity:.2f}\t{original_sentence}\t{prev_sentence}\t{next_sentence}\n")
     
     print(f"句子映射文件已生成：{output_path}")
     print(f"总映射条数：{len(sentence_mappings)}")
