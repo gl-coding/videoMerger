@@ -336,8 +336,26 @@ def correct_srt_with_mapping(original_text_path, srt_path, output_path):
     
     return corrected_subtitles
 
-def generate_sentence_mapping(original_text_path, srt_path, output_path):
-    """生成字幕文件语句和原文语句的映射文件"""
+def print_low_similarity_mappings(mappings, threshold=0.8):
+    """打印相似度低于阈值的映射"""
+    print("\n相似度低于 {:.2f} 的映射:".format(threshold))
+    print("-" * 80)
+    low_similarity_count = 0
+    
+    for subtitle_text, original_segment, char_diff, similarity, original_sentence in mappings:
+        if similarity < threshold:
+            low_similarity_count += 1
+            print(f"字幕: {subtitle_text}")
+            print(f"原文短句: {original_segment}")
+            print(f"字符差值: {char_diff}")
+            print(f"相似度: {similarity:.2f}")
+            print(f"原文长句: {original_sentence}")
+            print("-" * 80)
+    
+    print(f"总共有 {low_similarity_count} 个相似度低于 {threshold} 的映射")
+
+def generate_sentence_mapping(original_text_path, srt_path, output_path, corrected_srt_path=None):
+    """生成字幕文件语句和原文语句的映射文件，并可选择同时更正字幕"""
     # 读取原始文本
     with open(original_text_path, 'r', encoding='utf-8') as f:
         original_text = f.read()
@@ -405,6 +423,8 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path):
     
     # 对每个字幕条目进行处理
     sentence_mappings = []
+    # 用于存储字幕更正的映射
+    subtitle_corrections = {}
     
     for subtitle in subtitles:
         subtitle_text = subtitle['text'].strip()
@@ -483,6 +503,9 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path):
             lcs_score = longest_common_subsequence(clean_subtitle, clean_segment)
             similarity = lcs_score / max(len(clean_subtitle), 1)
             
+            # 计算字符数差异
+            char_diff = len(clean_segment) - len(clean_subtitle)
+            
             # 只有相似度超过阈值才添加映射
             if similarity > 0.3:  # 设置一个相似度阈值
                 # 找到对应的长句
@@ -503,12 +526,17 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path):
                         clean_segment = clean_text_for_comparison(best_match_segment)
                         lcs_score = longest_common_subsequence(clean_subtitle, clean_segment)
                         similarity = lcs_score / max(len(clean_subtitle), 1)
+                        # 重新计算字符数差异
+                        char_diff = len(clean_segment) - len(clean_subtitle)
                 
-                sentence_mappings.append((subtitle_text, best_match_segment, similarity, best_match_sentence))
+                sentence_mappings.append((subtitle_text, best_match_segment, char_diff, similarity, best_match_sentence))
+                
+                # 保存字幕更正映射
+                subtitle_corrections[subtitle_text] = best_match_segment
     
     # 写入映射文件
     with open(output_path, 'w', encoding='utf-8') as f:
-        for subtitle_sentence, original_segment, similarity, original_sentence in sentence_mappings:
+        for subtitle_sentence, original_segment, char_diff, similarity, original_sentence in sentence_mappings:
             # 替换制表符和换行符，避免格式混乱
             subtitle_sentence = subtitle_sentence.replace('\t', ' ').replace('\n', ' ')
             original_segment = original_segment.replace('\t', ' ').replace('\n', ' ')
@@ -525,10 +553,51 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path):
                 if sentence_end > 0:
                     original_sentence = original_sentence[:sentence_end+1]
             
-            f.write(f"{subtitle_sentence}\t{original_segment}\t{similarity:.2f}\t{original_sentence}\n")
+            f.write(f"{subtitle_sentence}\t{original_segment}\t{char_diff}\t{similarity:.2f}\t{original_sentence}\n")
     
     print(f"句子映射文件已生成：{output_path}")
     print(f"总映射条数：{len(sentence_mappings)}")
+    
+    # 打印相似度低的映射
+    print_low_similarity_mappings(sentence_mappings, 0.8)
+    
+    # 如果指定了更正字幕的输出路径，则应用映射进行更正
+    if corrected_srt_path:
+        print(f"\n开始应用映射更正字幕...")
+        corrected_count = 0
+        corrected_subtitles = []
+        
+        for subtitle in subtitles:
+            subtitle_text = subtitle['text'].strip()
+            if subtitle_text in subtitle_corrections:
+                # 使用映射中的原文短句替换字幕文本
+                corrected_text = subtitle_corrections[subtitle_text]
+                if corrected_text != subtitle_text:
+                    corrected_count += 1
+                
+                corrected_subtitles.append({
+                    'number': subtitle['number'],
+                    'timestamp': subtitle['timestamp'],
+                    'text': corrected_text
+                })
+            else:
+                # 如果没有找到映射，保留原始字幕
+                corrected_subtitles.append(subtitle)
+        
+        # 写入更正后的SRT文件
+        with open(corrected_srt_path, 'w', encoding='utf-8') as f:
+            for subtitle in corrected_subtitles:
+                f.write(f"{subtitle['number']}\n")
+                f.write(f"{subtitle['timestamp']}\n")
+                f.write(f"{subtitle['text']}\n\n")
+        
+        print(f"字幕更正完成！")
+        print(f"输出文件：{corrected_srt_path}")
+        print(f"总字幕条数：{len(corrected_subtitles)}")
+        print(f"更正条数：{corrected_count}")
+        print(f"更正率：{corrected_count/len(corrected_subtitles)*100:.1f}%")
+        
+        return sentence_mappings, corrected_subtitles
     
     return sentence_mappings
 
@@ -658,26 +727,74 @@ def restore_punctuation_from_original(corrected_text, original_subtitle_text):
     
     return ''.join(result)
 
+def correct_srt_from_mapping(srt_path, mapping_path, output_path):
+    """根据字幕和原文短句的映射生成更正后的字幕"""
+    print(f"使用映射文件 {mapping_path} 更正字幕 {srt_path}...")
+    
+    # 解析SRT文件
+    subtitles = parse_srt(srt_path)
+    
+    # 加载映射文件
+    mappings = {}
+    with open(mapping_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            parts = line.strip().split('\t')
+            if len(parts) >= 2:  # 确保至少有字幕文本和原文短句
+                subtitle_text = parts[0]
+                original_segment = parts[1]
+                # 将字幕文本映射到原文短句
+                mappings[subtitle_text] = original_segment
+    
+    print(f"加载了 {len(mappings)} 条映射记录")
+    
+    # 更正字幕
+    corrected_count = 0
+    corrected_subtitles = []
+    
+    for subtitle in subtitles:
+        subtitle_text = subtitle['text'].strip()
+        if subtitle_text in mappings:
+            # 使用映射中的原文短句替换字幕文本
+            corrected_text = mappings[subtitle_text]
+            if corrected_text != subtitle_text:
+                corrected_count += 1
+            
+            corrected_subtitles.append({
+                'number': subtitle['number'],
+                'timestamp': subtitle['timestamp'],
+                'text': corrected_text
+            })
+        else:
+            # 如果没有找到映射，保留原始字幕
+            corrected_subtitles.append(subtitle)
+    
+    # 写入更正后的SRT文件
+    with open(output_path, 'w', encoding='utf-8') as f:
+        for subtitle in corrected_subtitles:
+            f.write(f"{subtitle['number']}\n")
+            f.write(f"{subtitle['timestamp']}\n")
+            f.write(f"{subtitle['text']}\n\n")
+    
+    print(f"\n更正完成！")
+    print(f"输出文件：{output_path}")
+    print(f"总字幕条数：{len(corrected_subtitles)}")
+    print(f"更正条数：{corrected_count}")
+    print(f"更正率：{corrected_count/len(corrected_subtitles)*100:.1f}%")
+    
+    return corrected_subtitles
+
 def main():
-    parser = argparse.ArgumentParser(description='字幕纠错工具 - 基于字符映射的纠错算法')
-    parser.add_argument('original_text', help='原始文本文件路径')
+    parser = argparse.ArgumentParser(description='字幕纠错工具 - 基于字符映射和句子映射的纠错算法')
     parser.add_argument('srt_file', help='需要纠正的SRT字幕文件路径')
+    parser.add_argument('original_text', help='原始文本文件路径', nargs='?')
     parser.add_argument('-o', '--output', help='输出的纠正后SRT文件路径（默认在原SRT文件目录生成）')
     parser.add_argument('-v', '--verbose', action='store_true', help='显示详细对比信息')
     parser.add_argument('--show-all', action='store_true', help='显示所有字幕对比（默认只显示前10条）')
-    parser.add_argument('--no-sentence-mapping', action='store_true', help='不生成句子级别的映射文件')
-    parser.add_argument('--sentence-output', help='句子映射文件的输出路径（默认在原SRT文件目录生成）')
+    parser.add_argument('--char-mapping', help='指定字符级别的映射文件路径')
+    parser.add_argument('--sentence-mapping', help='指定句子级别的映射文件路径')
+    parser.add_argument('--generate-only', action='store_true', help='仅生成映射文件，不进行字幕更正')
     
     args = parser.parse_args()
-    
-    # 检查文件是否存在
-    if not os.path.exists(args.original_text):
-        print(f"错误：原始文本文件不存在：{args.original_text}")
-        sys.exit(1)
-    
-    if not os.path.exists(args.srt_file):
-        print(f"错误：SRT字幕文件不存在：{args.srt_file}")
-        sys.exit(1)
     
     # 设置输出文件路径
     if args.output:
@@ -687,46 +804,164 @@ def main():
         srt_name = os.path.splitext(os.path.basename(args.srt_file))[0]
         output_file = os.path.join(srt_dir, f"{srt_name}_corrected.srt")
     
-    # 设置句子映射文件路径
-    if not args.no_sentence_mapping:
-        if args.sentence_output:
-            sentence_mapping_file = args.sentence_output
-        else:
-            srt_dir = os.path.dirname(args.srt_file)
-            srt_name = os.path.splitext(os.path.basename(args.srt_file))[0]
-            sentence_mapping_file = os.path.join(srt_dir, f"{srt_name}_sentence_mapping.txt")
+    # 检查SRT文件是否存在
+    if not os.path.exists(args.srt_file):
+        print(f"错误：SRT字幕文件不存在：{args.srt_file}")
+        sys.exit(1)
     
-    # 执行字符映射纠错
-    print("开始字符映射纠错...")
-    print(f"原始文本：{args.original_text}")
-    print(f"SRT文件：{args.srt_file}")
-    print(f"输出文件：{output_file}")
-    
-    # 执行纠错
-    corrected_subtitles = correct_srt_with_mapping(args.original_text, args.srt_file, output_file)
-    
-    # 生成句子映射
-    if not args.no_sentence_mapping:
-        print("\n开始生成句子映射...")
-        print(f"句子映射输出：{sentence_mapping_file}")
-        generate_sentence_mapping(args.original_text, args.srt_file, sentence_mapping_file)
-    
-    # 显示对比信息
-    if args.verbose:
-        print("\n=== 纠错对比 ===")
-        show_count = len(corrected_subtitles) if args.show_all else 10
+    # 如果指定了映射文件，则使用映射文件进行更正
+    if args.char_mapping or args.sentence_mapping:
+        corrected_subtitles = None
         
-        for i, subtitle in enumerate(corrected_subtitles[:show_count]):
-            if subtitle['text'] != subtitles[i]['text']:
-                print(f"\n第{i+1}条 [{subtitle['timestamp']}] - 已纠正:")
-                print(f"  原始：{subtitles[i]['text']}")
-                print(f"  纠正：{subtitle['text']}")
-            else:
-                print(f"\n第{i+1}条 [{subtitle['timestamp']}] - 无需纠正:")
-                print(f"  文本：{subtitle['text']}")
+        # 如果指定了字符映射文件，先应用字符映射
+        if args.char_mapping:
+            if not os.path.exists(args.char_mapping):
+                print(f"错误：字符映射文件不存在：{args.char_mapping}")
+                sys.exit(1)
+            
+            print(f"使用字符映射文件进行更正：{args.char_mapping}")
+            # 加载字符映射
+            mapping_dict = load_character_mapping(args.char_mapping)
+            
+            # 解析SRT文件
+            subtitles = parse_srt(args.srt_file)
+            
+            # 应用字符映射进行更正
+            corrected_subtitles = []
+            corrected_count = 0
+            
+            for subtitle in subtitles:
+                corrected_text = apply_character_mapping(subtitle['text'], mapping_dict)
+                if corrected_text != subtitle['text']:
+                    corrected_count += 1
+                
+                corrected_subtitles.append({
+                    'number': subtitle['number'],
+                    'timestamp': subtitle['timestamp'],
+                    'text': corrected_text
+                })
+            
+            print(f"字符映射更正完成，更正了 {corrected_count} 条字幕")
+            
+            # 如果只有字符映射，直接写入输出文件
+            if not args.sentence_mapping:
+                # 写入更正后的SRT文件
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    for subtitle in corrected_subtitles:
+                        f.write(f"{subtitle['number']}\n")
+                        f.write(f"{subtitle['timestamp']}\n")
+                        f.write(f"{subtitle['text']}\n\n")
+                
+                print(f"输出文件：{output_file}")
         
-        if not args.show_all and len(corrected_subtitles) > 10:
-            print(f"\n... 还有 {len(corrected_subtitles) - 10} 条字幕，使用 --show-all 查看全部")
+        # 如果指定了句子映射文件，应用句子映射
+        if args.sentence_mapping:
+            if not os.path.exists(args.sentence_mapping):
+                print(f"错误：句子映射文件不存在：{args.sentence_mapping}")
+                sys.exit(1)
+            
+            print(f"使用句子映射文件进行更正：{args.sentence_mapping}")
+            
+            # 如果之前已经应用了字符映射，创建临时SRT文件
+            temp_srt_file = args.srt_file
+            if corrected_subtitles:
+                temp_srt_file = os.path.join(os.path.dirname(args.srt_file), f"temp_{os.path.basename(args.srt_file)}")
+                with open(temp_srt_file, 'w', encoding='utf-8') as f:
+                    for subtitle in corrected_subtitles:
+                        f.write(f"{subtitle['number']}\n")
+                        f.write(f"{subtitle['timestamp']}\n")
+                        f.write(f"{subtitle['text']}\n\n")
+            
+            # 使用句子映射文件更正字幕
+            corrected_subtitles = correct_srt_from_mapping(temp_srt_file, args.sentence_mapping, output_file)
+            
+            # 如果创建了临时文件，删除它
+            if temp_srt_file != args.srt_file and os.path.exists(temp_srt_file):
+                os.remove(temp_srt_file)
+        
+        # 显示对比信息
+        if args.verbose:
+            print("\n=== 更正对比 ===")
+            # 解析原始字幕以便比较
+            original_subtitles = parse_srt(args.srt_file)
+            show_count = len(corrected_subtitles) if args.show_all else 10
+            
+            for i, subtitle in enumerate(corrected_subtitles[:show_count]):
+                if i < len(original_subtitles) and subtitle['text'] != original_subtitles[i]['text']:
+                    print(f"\n第{i+1}条 [{subtitle['timestamp']}] - 已更正:")
+                    print(f"  原始：{original_subtitles[i]['text']}")
+                    print(f"  更正：{subtitle['text']}")
+                else:
+                    print(f"\n第{i+1}条 [{subtitle['timestamp']}] - 无需更正:")
+                    print(f"  文本：{subtitle['text']}")
+            
+            if not args.show_all and len(corrected_subtitles) > 10:
+                print(f"\n... 还有 {len(corrected_subtitles) - 10} 条字幕，使用 --show-all 查看全部")
+        
+        return
+    
+    # 如果没有指定映射文件，但提供了原始文本，则生成映射并更正
+    if args.original_text:
+        if not os.path.exists(args.original_text):
+            print(f"错误：原始文本文件不存在：{args.original_text}")
+            sys.exit(1)
+        
+        # 设置映射文件路径
+        srt_dir = os.path.dirname(args.srt_file)
+        srt_name = os.path.splitext(os.path.basename(args.srt_file))[0]
+        char_mapping_file = os.path.join(srt_dir, f"{srt_name}_char_mapping.txt")
+        sentence_mapping_file = os.path.join(srt_dir, f"{srt_name}_sentence_mapping.txt")
+        
+        print("开始生成映射文件...")
+        print(f"原始文本：{args.original_text}")
+        print(f"SRT文件：{args.srt_file}")
+        
+        # 生成字符映射
+        print("\n生成字符级别映射...")
+        generate_character_mapping(args.original_text, args.srt_file, char_mapping_file)
+        
+        # 生成句子映射
+        print("\n生成句子级别映射...")
+        
+        # 如果只需要生成映射文件，不进行字幕更正
+        if args.generate_only:
+            generate_sentence_mapping(args.original_text, args.srt_file, sentence_mapping_file)
+            print(f"\n映射文件已生成：")
+            print(f"字符映射：{char_mapping_file}")
+            print(f"句子映射：{sentence_mapping_file}")
+            return
+        
+        # 否则，生成映射的同时进行字幕更正
+        print(f"同时应用映射进行字幕更正，输出到：{output_file}")
+        result = generate_sentence_mapping(args.original_text, args.srt_file, sentence_mapping_file, output_file)
+        
+        if isinstance(result, tuple):
+            _, corrected_subtitles = result
+        
+            # 显示对比信息
+            if args.verbose:
+                print("\n=== 更正对比 ===")
+                # 解析原始字幕以便比较
+                original_subtitles = parse_srt(args.srt_file)
+                show_count = len(corrected_subtitles) if args.show_all else 10
+                
+                for i, subtitle in enumerate(corrected_subtitles[:show_count]):
+                    if i < len(original_subtitles) and subtitle['text'] != original_subtitles[i]['text']:
+                        print(f"\n第{i+1}条 [{subtitle['timestamp']}] - 已更正:")
+                        print(f"  原始：{original_subtitles[i]['text']}")
+                        print(f"  更正：{subtitle['text']}")
+                    else:
+                        print(f"\n第{i+1}条 [{subtitle['timestamp']}] - 无需更正:")
+                        print(f"  文本：{subtitle['text']}")
+                
+                if not args.show_all and len(corrected_subtitles) > 10:
+                    print(f"\n... 还有 {len(corrected_subtitles) - 10} 条字幕，使用 --show-all 查看全部")
+        
+        return
+    
+    # 如果既没有指定映射文件，也没有提供原始文本，则显示错误信息
+    print("错误：请指定映射文件(--char-mapping 和/或 --sentence-mapping)或提供原始文本文件")
+    sys.exit(1)
 
 if __name__ == "__main__":
     main()

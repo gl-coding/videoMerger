@@ -88,7 +88,7 @@ function srt_fix() {
     fi
     rm -f $corrected_srt
     rm -f $sentence_mapping_file
-    python fix_srt.py $content_file_fix $src_srt -o $corrected_srt --sentence-output $sentence_mapping_file
+    python fix_srt.py $src_srt $content_file_fix -o $corrected_srt 
 }
 
 function srt_ass_gen() {
