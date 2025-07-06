@@ -53,9 +53,12 @@ def parse_srt(srt_path):
             continue
         
         try:
-            number = int(lines[0])
-            timestamp = lines[1]
-            text = ' '.join(lines[2:])
+            number = int(lines[0].strip())
+            timestamp = lines[1].strip()  # 确保时间戳没有前后空格
+            
+            # 合并剩余的行作为字幕文本，确保没有多余的空格
+            text_lines = [line.strip() for line in lines[2:]]
+            text = ' '.join(text_lines)
             
             subtitles.append({
                 'number': number,
@@ -571,7 +574,7 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
             subtitle_text = subtitle['text'].strip()
             if subtitle_text in subtitle_corrections:
                 # 使用映射中的原文短句替换字幕文本
-                corrected_text = subtitle_corrections[subtitle_text]
+                corrected_text = subtitle_corrections[subtitle_text].strip()  # 确保没有前后空格
                 if corrected_text != subtitle_text:
                     corrected_count += 1
                 
@@ -587,9 +590,10 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
         # 写入更正后的SRT文件
         with open(corrected_srt_path, 'w', encoding='utf-8') as f:
             for subtitle in corrected_subtitles:
+                # 确保每个字段都没有多余的空格
                 f.write(f"{subtitle['number']}\n")
                 f.write(f"{subtitle['timestamp']}\n")
-                f.write(f"{subtitle['text']}\n\n")
+                f.write(f"{subtitle['text'].strip()}\n\n")  # 确保文本没有前后空格
         
         print(f"字幕更正完成！")
         print(f"输出文件：{corrected_srt_path}")
@@ -755,7 +759,7 @@ def correct_srt_from_mapping(srt_path, mapping_path, output_path):
         subtitle_text = subtitle['text'].strip()
         if subtitle_text in mappings:
             # 使用映射中的原文短句替换字幕文本
-            corrected_text = mappings[subtitle_text]
+            corrected_text = mappings[subtitle_text].strip()  # 确保没有前后空格
             if corrected_text != subtitle_text:
                 corrected_count += 1
             
@@ -771,9 +775,10 @@ def correct_srt_from_mapping(srt_path, mapping_path, output_path):
     # 写入更正后的SRT文件
     with open(output_path, 'w', encoding='utf-8') as f:
         for subtitle in corrected_subtitles:
+            # 确保每个字段都没有多余的空格
             f.write(f"{subtitle['number']}\n")
             f.write(f"{subtitle['timestamp']}\n")
-            f.write(f"{subtitle['text']}\n\n")
+            f.write(f"{subtitle['text'].strip()}\n\n")  # 确保文本没有前后空格
     
     print(f"\n更正完成！")
     print(f"输出文件：{output_path}")
@@ -831,7 +836,7 @@ def main():
             corrected_count = 0
             
             for subtitle in subtitles:
-                corrected_text = apply_character_mapping(subtitle['text'], mapping_dict)
+                corrected_text = apply_character_mapping(subtitle['text'], mapping_dict).strip()  # 确保没有前后空格
                 if corrected_text != subtitle['text']:
                     corrected_count += 1
                 
@@ -848,9 +853,10 @@ def main():
                 # 写入更正后的SRT文件
                 with open(output_file, 'w', encoding='utf-8') as f:
                     for subtitle in corrected_subtitles:
+                        # 确保每个字段都没有多余的空格
                         f.write(f"{subtitle['number']}\n")
                         f.write(f"{subtitle['timestamp']}\n")
-                        f.write(f"{subtitle['text']}\n\n")
+                        f.write(f"{subtitle['text'].strip()}\n\n")  # 确保文本没有前后空格
                 
                 print(f"输出文件：{output_file}")
         
@@ -868,9 +874,10 @@ def main():
                 temp_srt_file = os.path.join(os.path.dirname(args.srt_file), f"temp_{os.path.basename(args.srt_file)}")
                 with open(temp_srt_file, 'w', encoding='utf-8') as f:
                     for subtitle in corrected_subtitles:
+                        # 确保每个字段都没有多余的空格
                         f.write(f"{subtitle['number']}\n")
                         f.write(f"{subtitle['timestamp']}\n")
-                        f.write(f"{subtitle['text']}\n\n")
+                        f.write(f"{subtitle['text'].strip()}\n\n")  # 确保文本没有前后空格
             
             # 使用句子映射文件更正字幕
             corrected_subtitles = correct_srt_from_mapping(temp_srt_file, args.sentence_mapping, output_file)
