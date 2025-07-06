@@ -106,6 +106,7 @@ function download_wavs() {
 function cover_srt_gen() {
     dir=$1
     text=$2
+    echo "cover_srt_gen $dir $text"
     cover_pic_dir=$dir
     cover_pic=$cover_pic_dir/cover_pic.jpg
     cover_pic_text=$cover_pic_dir/cover_pic_text.jpg
@@ -139,7 +140,18 @@ function cover_srt_gen() {
 
 function cover_video_gen_all() {
     #cover_srt_gen "aaa" "今天我们分享的是"
-    cover_srt_gen "bbb" "余华老师的《活着》"
+    #cover_srt_gen "bbb" "余华老师的《活着》"
+    #ffmpeg -i "concat:aaa/cover_video_ass.mp4|bbb/cover_video_ass.mp4" -c copy output.mp4
+    echo "file 'aaa/cover_video_ass.mp4'" > cover_list.txt
+    echo "file 'bbb/cover_video_ass.mp4'" >> cover_list.txt
+    
+    # 合并视频
+    ffmpeg -f concat -safe 0 -i cover_list.txt -c copy merged_cover.mp4
+    
+    echo "封面视频合并完成: cover/merged_cover.mp4"
+    
+    # 删除临时文件
+    rm cover_list.txt
 }
 
 #voice_gen
