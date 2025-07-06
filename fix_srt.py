@@ -192,15 +192,34 @@ def create_sliding_window_mapping(original_clean, subtitle_clean):
         best_alignment = 0
     
     # 创建映射 - 优先考虑原文的完整性
-    for i in range(len(original_clean)):
-        subtitle_pos = i - best_alignment
-        if 0 <= subtitle_pos < len(subtitle_clean):
-            # 有对应的字幕字符
-            mappings.append(f"{subtitle_clean[subtitle_pos]}\t{original_clean[i]}")
-        else:
-            # 没有对应的字幕字符，保持原文字符
+    i = 0  # 原文索引
+    j = 0  # 字幕索引
+    while i < len(original_clean):
+        if j >= len(subtitle_clean):
+            # 字幕文本已结束，保持原文字符
             mappings.append(f"{original_clean[i]}\t{original_clean[i]}")
-    
+            i += 1
+            continue
+            
+        # 向前看3个字符，检查是否存在连续匹配
+        forward_match = 0
+        for k in range(3):
+            if (i + k < len(original_clean) and 
+                j + k < len(subtitle_clean) and 
+                original_clean[i + k] == subtitle_clean[j + k]):
+                forward_match += 1
+        
+        if forward_match >= 2:
+            # 如果前向匹配度高，说明当前对齐是正确的
+            mappings.append(f"{subtitle_clean[j]}\t{original_clean[i]}")
+            i += 1
+            j += 1
+        else:
+            # 如果前向匹配度低，可能是字幕缺字，使用原文字符
+            mappings.append(f"{original_clean[i]}\t{original_clean[i]}")
+            i += 1
+            # 不增加j，让字幕文本保持原位
+            
     return mappings
 
 def load_character_mapping(mapping_file_path):
@@ -245,54 +264,51 @@ def correct_srt_with_mapping(original_text_path, srt_path, output_path):
     print("步骤1: 生成字符映射文件...")
     generate_character_mapping(original_text_path, srt_path, mapping_file_path)
     
-    print("\n步骤2: 从映射文件提取正确的文本序列...")
-    
-    # 从映射文件中提取正确的字符序列
-    correct_sequence = []
+    print("\n步骤2: 加载字符映射...")
+    # 加载字符映射
+    mapping_dict = {}
     with open(mapping_file_path, 'r', encoding='utf-8') as f:
         for line in f:
             line = line.strip()
             if line and '\t' in line:
-                parts = line.split('\t')
-                if len(parts) == 2:
-                    wrong_char, correct_char = parts
-                    correct_sequence.append(correct_char)
+                wrong_char, correct_char = line.split('\t')
+                mapping_dict[wrong_char] = correct_char
     
-    print(f"提取到正确字符序列，长度: {len(correct_sequence)}")
-    print(f"正确序列前50字符: {''.join(correct_sequence[:50])}")
+    print(f"加载了 {len(mapping_dict)} 个字符映射")
     
     # 解析SRT文件
     subtitles = parse_srt(srt_path)
     print(f"解析到 {len(subtitles)} 条字幕")
     
-    # 计算每条字幕对应的字符长度（去除标点符号）
-    subtitle_char_lengths = []
-    for subtitle in subtitles:
-        # 预处理字幕文本，移除标点和空格
-        clean_subtitle = clean_text_for_comparison(preprocess_text(subtitle['text']))
-        subtitle_char_lengths.append(len(clean_subtitle))
-    
-    # 按字符长度重新分配正确的文本
+    # 直接对每条字幕文本进行纠正
     corrected_subtitles = []
-    char_index = 0
     corrected_count = 0
     
-    for i, subtitle in enumerate(subtitles):
-        char_length = subtitle_char_lengths[i]
+    for subtitle in subtitles:
+        # 保留原始标点符号位置
+        punctuation_positions = []
+        text = subtitle['text']
+        for i, char in enumerate(text):
+            if not char.isalnum() and not char.isspace():
+                punctuation_positions.append((i, char))
         
-        if char_index + char_length <= len(correct_sequence):
-            # 提取对应的正确字符
-            correct_chars = correct_sequence[char_index:char_index + char_length]
-            corrected_text = ''.join(correct_chars)
-            char_index += char_length
-        else:
-            # 如果超出范围，使用剩余的所有字符
-            remaining_chars = correct_sequence[char_index:]
-            corrected_text = ''.join(remaining_chars)
-            char_index = len(correct_sequence)
+        # 清理文本，只保留字符
+        clean_text = clean_text_for_comparison(text)
         
-        # 恢复基本的标点符号
-        corrected_text = restore_punctuation_from_original(corrected_text, subtitle['text'])
+        # 纠正每个字符
+        corrected_chars = []
+        for char in clean_text:
+            if char in mapping_dict:
+                corrected_chars.append(mapping_dict[char])
+            else:
+                corrected_chars.append(char)
+        
+        # 重新插入标点符号
+        for pos, punct in punctuation_positions:
+            if pos < len(corrected_chars):
+                corrected_chars.insert(pos, punct)
+        
+        corrected_text = ''.join(corrected_chars)
         
         # 检查是否有修改
         if corrected_text != subtitle['text']:
@@ -301,8 +317,7 @@ def correct_srt_with_mapping(original_text_path, srt_path, output_path):
         corrected_subtitles.append({
             'number': subtitle['number'],
             'timestamp': subtitle['timestamp'],
-            'text': corrected_text,
-            'original': subtitle['text']
+            'text': corrected_text
         })
     
     # 写入纠正后的SRT文件
@@ -320,6 +335,301 @@ def correct_srt_with_mapping(original_text_path, srt_path, output_path):
     print(f"纠正率：{corrected_count/len(corrected_subtitles)*100:.1f}%")
     
     return corrected_subtitles
+
+def generate_sentence_mapping(original_text_path, srt_path, output_path):
+    """生成字幕文件语句和原文语句的映射文件"""
+    # 读取原始文本
+    with open(original_text_path, 'r', encoding='utf-8') as f:
+        original_text = f.read()
+    
+    # 解析SRT文件
+    subtitles = parse_srt(srt_path)
+    
+    # 先分割原文为长句
+    # 使用常见的中文和英文句子结束符号
+    original_sentences = re.split(r'([。！？!?])', original_text)
+    # 重新组合句子和标点
+    processed_sentences = []
+    i = 0
+    while i < len(original_sentences):
+        if i + 1 < len(original_sentences) and original_sentences[i+1] in '。！？!?':
+            processed_sentences.append(original_sentences[i] + original_sentences[i+1])
+            i += 2
+        else:
+            if original_sentences[i].strip():  # 只添加非空句子
+                processed_sentences.append(original_sentences[i])
+            i += 1
+    
+    # 分割原文为短句
+    # 使用更多的分隔符号，包括逗号、分号等
+    original_segments = re.split(r'([。，；：！？,.;:!?])', original_text)
+    # 重新组合句子和标点
+    processed_segments = []
+    i = 0
+    while i < len(original_segments):
+        if i + 1 < len(original_segments) and original_segments[i+1] in '。，；：！？,.;:!?':
+            processed_segments.append(original_segments[i] + original_segments[i+1])
+            i += 2
+        else:
+            if original_segments[i].strip():  # 只添加非空句子
+                processed_segments.append(original_segments[i])
+            i += 1
+    
+    # 过滤太短的片段
+    processed_segments = [seg for seg in processed_segments if len(clean_text_for_comparison(seg)) > 2]
+    
+    print(f"原文长句数: {len(processed_sentences)}")
+    print(f"原文短句数: {len(processed_segments)}")
+    
+    # 建立短句到长句的映射
+    segment_to_sentence = {}
+    for segment in processed_segments:
+        best_match = None
+        best_score = -1
+        
+        clean_segment = clean_text_for_comparison(segment)
+        for sentence in processed_sentences:
+            clean_sentence = clean_text_for_comparison(sentence)
+            # 如果短句是长句的一部分
+            if clean_segment in clean_sentence:
+                # 计算短句在长句中的覆盖率
+                coverage = len(clean_segment) / len(clean_sentence)
+                # 优先选择覆盖率高的长句
+                score = len(clean_segment) * (1 + coverage)
+                if score > best_score:
+                    best_score = score
+                    best_match = sentence
+        
+        if best_match:
+            segment_to_sentence[segment] = best_match
+    
+    # 对每个字幕条目进行处理
+    sentence_mappings = []
+    
+    for subtitle in subtitles:
+        subtitle_text = subtitle['text'].strip()
+        if not subtitle_text:  # 跳过空字幕
+            continue
+            
+        # 清理字幕文本用于比较
+        clean_subtitle = clean_text_for_comparison(subtitle_text)
+        
+        # 尝试找到精确匹配的原文短句
+        best_match_segment = None
+        best_score = -1
+        
+        # 1. 首先尝试寻找精确匹配的原文短句
+        for original_segment in processed_segments:
+            clean_original = clean_text_for_comparison(original_segment)
+            if not clean_original:  # 跳过空句子
+                continue
+            
+            # 计算精确匹配度 - 使用最长公共子串而非子序列
+            lcs = longest_common_substring(clean_subtitle, clean_original)
+            match_ratio = lcs / len(clean_subtitle)
+            
+            # 如果匹配度高且长度接近，视为精确匹配
+            if match_ratio > 0.8 and 0.7 <= len(clean_original) / len(clean_subtitle) <= 1.3:
+                score = lcs * 3  # 给精确匹配更高的分数
+                if score > best_score:
+                    best_score = score
+                    best_match_segment = original_segment
+        
+        # 2. 如果没有找到精确匹配，尝试找到包含字幕内容的最小原文短句
+        if not best_match_segment:
+            for original_segment in processed_segments:
+                clean_original = clean_text_for_comparison(original_segment)
+                if not clean_original:  # 跳过空句子
+                    continue
+                
+                # 如果原文短句包含字幕文本
+                if clean_subtitle in clean_original:
+                    # 计算包含率 - 越接近1越好
+                    contain_ratio = len(clean_subtitle) / len(clean_original)
+                    score = len(clean_subtitle) * (contain_ratio ** 2)  # 给包含率高的更高分数
+                    if score > best_score:
+                        best_score = score
+                        best_match_segment = original_segment
+        
+        # 3. 如果仍未找到匹配，使用最长公共子序列
+        if not best_match_segment:
+            for original_segment in processed_segments:
+                clean_original = clean_text_for_comparison(original_segment)
+                if not clean_original:  # 跳过空句子
+                    continue
+                    
+                # 计算最长公共子序列长度作为相似度
+                score = longest_common_subsequence(clean_subtitle, clean_original)
+                if score > best_score:
+                    best_score = score
+                    best_match_segment = original_segment
+        
+        # 4. 检查是否需要合并多个短句来匹配字幕
+        if best_match_segment:
+            clean_segment = clean_text_for_comparison(best_match_segment)
+            # 如果最佳匹配只覆盖了字幕的一部分（小于70%）
+            if longest_common_subsequence(clean_subtitle, clean_segment) < len(clean_subtitle) * 0.7:
+                # 尝试合并相邻短句
+                combined_segment = try_combine_segments(processed_segments, clean_subtitle, best_match_segment)
+                if combined_segment != best_match_segment:
+                    best_match_segment = combined_segment
+        
+        if best_match_segment:
+            # 计算相似度
+            clean_subtitle = clean_text_for_comparison(subtitle_text)
+            clean_segment = clean_text_for_comparison(best_match_segment)
+            
+            # 使用最长公共子序列计算相似度
+            lcs_score = longest_common_subsequence(clean_subtitle, clean_segment)
+            similarity = lcs_score / max(len(clean_subtitle), 1)
+            
+            # 只有相似度超过阈值才添加映射
+            if similarity > 0.3:  # 设置一个相似度阈值
+                # 找到对应的长句
+                best_match_sentence = segment_to_sentence.get(best_match_segment)
+                if not best_match_sentence:  # 如果没有找到对应的长句，使用短句作为长句
+                    best_match_sentence = best_match_segment
+                
+                # 5. 如果匹配的短句明显长于字幕，尝试找到更精确的子句
+                if len(clean_segment) > len(clean_subtitle) * 1.5:
+                    # 尝试从短句中提取与字幕最匹配的部分
+                    extracted_segment = extract_best_matching_subsegment(best_match_segment, subtitle_text)
+                    
+                    # 只有当提取的部分覆盖了字幕的大部分内容时才使用
+                    extracted_clean = clean_text_for_comparison(extracted_segment)
+                    if longest_common_subsequence(clean_subtitle, extracted_clean) >= len(clean_subtitle) * 0.7:
+                        best_match_segment = extracted_segment
+                        # 重新计算相似度
+                        clean_segment = clean_text_for_comparison(best_match_segment)
+                        lcs_score = longest_common_subsequence(clean_subtitle, clean_segment)
+                        similarity = lcs_score / max(len(clean_subtitle), 1)
+                
+                sentence_mappings.append((subtitle_text, best_match_segment, similarity, best_match_sentence))
+    
+    # 写入映射文件
+    with open(output_path, 'w', encoding='utf-8') as f:
+        for subtitle_sentence, original_segment, similarity, original_sentence in sentence_mappings:
+            # 替换制表符和换行符，避免格式混乱
+            subtitle_sentence = subtitle_sentence.replace('\t', ' ').replace('\n', ' ')
+            original_segment = original_segment.replace('\t', ' ').replace('\n', ' ')
+            original_sentence = original_sentence.replace('\t', ' ').replace('\n', ' ')
+            
+            # 确保原文长句不包含多个句子（通过检查句号、感叹号、问号）
+            if '。' in original_sentence or '！' in original_sentence or '？' in original_sentence:
+                # 如果包含多个句子结束符，只保留第一个完整句子
+                sentence_end = max(
+                    original_sentence.find('。') if '。' in original_sentence else -1,
+                    original_sentence.find('！') if '！' in original_sentence else -1,
+                    original_sentence.find('？') if '？' in original_sentence else -1
+                )
+                if sentence_end > 0:
+                    original_sentence = original_sentence[:sentence_end+1]
+            
+            f.write(f"{subtitle_sentence}\t{original_segment}\t{similarity:.2f}\t{original_sentence}\n")
+    
+    print(f"句子映射文件已生成：{output_path}")
+    print(f"总映射条数：{len(sentence_mappings)}")
+    
+    return sentence_mappings
+
+def try_combine_segments(processed_segments, clean_subtitle, best_match_segment):
+    """尝试合并相邻短句以更好地匹配字幕内容"""
+    if best_match_segment not in processed_segments:
+        return best_match_segment
+    
+    segment_index = processed_segments.index(best_match_segment)
+    combined_segment = best_match_segment
+    best_score = longest_common_subsequence(clean_subtitle, clean_text_for_comparison(combined_segment))
+    
+    # 尝试向后合并最多3个短句
+    for i in range(1, 4):
+        if segment_index + i < len(processed_segments):
+            next_segment = processed_segments[segment_index + i]
+            new_combined = combined_segment + next_segment
+            new_score = longest_common_subsequence(clean_subtitle, clean_text_for_comparison(new_combined))
+            
+            # 如果合并后的匹配度显著提高，则采用合并结果
+            if new_score > best_score * 1.2:  # 要求至少提高20%
+                combined_segment = new_combined
+                best_score = new_score
+    
+    return combined_segment
+
+def longest_common_substring(str1, str2):
+    """计算两个字符串的最长公共子串长度"""
+    m, n = len(str1), len(str2)
+    # 创建DP表
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    
+    # 记录最长子串的长度
+    max_length = 0
+    
+    # 填充DP表
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if str1[i-1] == str2[j-1]:
+                dp[i][j] = dp[i-1][j-1] + 1
+                max_length = max(max_length, dp[i][j])
+    
+    return max_length
+
+def extract_best_matching_subsegment(segment, subtitle_text):
+    """从原文短句中提取与字幕最匹配的部分"""
+    # 清理文本用于比较
+    clean_segment = clean_text_for_comparison(segment)
+    clean_subtitle = clean_text_for_comparison(subtitle_text)
+    
+    # 如果字幕文本是原文短句的一部分，直接返回字幕文本对应的原文部分
+    if clean_subtitle in clean_segment:
+        # 找到字幕在原文中的位置
+        start_pos = clean_segment.find(clean_subtitle)
+        end_pos = start_pos + len(clean_subtitle)
+        
+        # 提取原文中对应的部分，保留标点符号
+        segment_chars = list(segment)
+        clean_chars = []
+        original_to_clean_map = {}
+        
+        # 建立原文字符到清理后字符的映射
+        clean_index = 0
+        for i, char in enumerate(segment):
+            if char.isalnum() or '\u4e00' <= char <= '\u9fff':  # 字母、数字或中文字符
+                clean_chars.append(char)
+                original_to_clean_map[clean_index] = i
+                clean_index += 1
+        
+        # 根据清理后的索引找到原文中的对应位置
+        if start_pos in original_to_clean_map and end_pos - 1 in original_to_clean_map:
+            orig_start = original_to_clean_map[start_pos]
+            orig_end = original_to_clean_map[end_pos - 1] + 1
+            
+            # 扩展边界，包含相邻的标点符号
+            while orig_start > 0 and not (segment_chars[orig_start-1].isalnum() or '\u4e00' <= segment_chars[orig_start-1] <= '\u9fff'):
+                orig_start -= 1
+            
+            while orig_end < len(segment_chars) and not (segment_chars[orig_end].isalnum() or '\u4e00' <= segment_chars[orig_end] <= '\u9fff'):
+                orig_end += 1
+            
+            return segment[orig_start:orig_end]
+    
+    # 如果无法精确定位，返回原始短句
+    return segment
+
+def longest_common_subsequence(str1, str2):
+    """计算两个字符串的最长公共子序列长度，用于句子相似度计算"""
+    m, n = len(str1), len(str2)
+    # 创建DP表
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    
+    # 填充DP表
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if str1[i-1] == str2[j-1]:
+                dp[i][j] = dp[i-1][j-1] + 1
+            else:
+                dp[i][j] = max(dp[i-1][j], dp[i][j-1])
+    
+    return dp[m][n]
 
 def restore_punctuation_from_original(corrected_text, original_subtitle_text):
     """根据原字幕的标点符号模式恢复纠正文本的标点"""
@@ -355,6 +665,8 @@ def main():
     parser.add_argument('-o', '--output', help='输出的纠正后SRT文件路径（默认在原SRT文件目录生成）')
     parser.add_argument('-v', '--verbose', action='store_true', help='显示详细对比信息')
     parser.add_argument('--show-all', action='store_true', help='显示所有字幕对比（默认只显示前10条）')
+    parser.add_argument('--no-sentence-mapping', action='store_true', help='不生成句子级别的映射文件')
+    parser.add_argument('--sentence-output', help='句子映射文件的输出路径（默认在原SRT文件目录生成）')
     
     args = parser.parse_args()
     
@@ -375,6 +687,16 @@ def main():
         srt_name = os.path.splitext(os.path.basename(args.srt_file))[0]
         output_file = os.path.join(srt_dir, f"{srt_name}_corrected.srt")
     
+    # 设置句子映射文件路径
+    if not args.no_sentence_mapping:
+        if args.sentence_output:
+            sentence_mapping_file = args.sentence_output
+        else:
+            srt_dir = os.path.dirname(args.srt_file)
+            srt_name = os.path.splitext(os.path.basename(args.srt_file))[0]
+            sentence_mapping_file = os.path.join(srt_dir, f"{srt_name}_sentence_mapping.txt")
+    
+    # 执行字符映射纠错
     print("开始字符映射纠错...")
     print(f"原始文本：{args.original_text}")
     print(f"SRT文件：{args.srt_file}")
@@ -383,15 +705,21 @@ def main():
     # 执行纠错
     corrected_subtitles = correct_srt_with_mapping(args.original_text, args.srt_file, output_file)
     
+    # 生成句子映射
+    if not args.no_sentence_mapping:
+        print("\n开始生成句子映射...")
+        print(f"句子映射输出：{sentence_mapping_file}")
+        generate_sentence_mapping(args.original_text, args.srt_file, sentence_mapping_file)
+    
     # 显示对比信息
     if args.verbose:
         print("\n=== 纠错对比 ===")
         show_count = len(corrected_subtitles) if args.show_all else 10
         
         for i, subtitle in enumerate(corrected_subtitles[:show_count]):
-            if subtitle['original'] != subtitle['text']:
+            if subtitle['text'] != subtitles[i]['text']:
                 print(f"\n第{i+1}条 [{subtitle['timestamp']}] - 已纠正:")
-                print(f"  原始：{subtitle['original']}")
+                print(f"  原始：{subtitles[i]['text']}")
                 print(f"  纠正：{subtitle['text']}")
             else:
                 print(f"\n第{i+1}条 [{subtitle['timestamp']}] - 无需纠正:")

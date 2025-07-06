@@ -4,14 +4,15 @@
 # 用法: ./image_to_video.sh [选项] <图片文件> <音频文件> <输出视频>
 
 # 默认参数
-WIDTH="1920"           # 输出宽度
-HEIGHT="1080"          # 输出高度
+WIDTH="1536"           # 输出宽度
+HEIGHT="900"          # 输出高度
 FPS="30"               # 帧率
 ZOOM="1.0"             # 缩放比例
 BG_COLOR="black"       # 背景颜色
 AUDIO_VOLUME="1.0"     # 音频音量
 EFFECT="none"          # 动态效果
 EFFECT_SPEED="1.0"     # 效果速度
+FINAL_ZOOM="1.5"       # 最终放大倍数
 
 # 显示帮助信息
 show_help() {
@@ -29,8 +30,9 @@ show_help() {
     echo "  -v, --volume LEVEL          音频音量(默认: 1.0)"
     echo "  -e, --effect EFFECT         动态效果(默认: none)"
     echo "                              可选: none, kenburns, move_right, move_left,"
-    echo "                                    move_up, move_down, fade, swing"
+    echo "                                    move_up, move_down, fade, swing, zoom_in"
     echo "  -s, --speed SPEED           效果速度(默认: 1.0)"
+    echo "  --final-zoom SCALE          最终放大倍数(默认: 1.5，仅用于 zoom_in 效果)"
     echo "  --help                      显示此帮助信息"
     echo ""
     echo "示例:"
@@ -161,6 +163,11 @@ generate_video() {
             local swing_speed=$(echo "8 / $EFFECT_SPEED" | bc)
             ffmpeg_cmd="$ffmpeg_cmd[0:v]format=yuv420p,scale=iw*${ZOOM}:ih*${ZOOM},rotate='sin(t*PI/${swing_speed})*2':c=${BG_COLOR}[scaled];"
             ;;
+        "zoom_in")
+            # 渐进放大效果
+            local zoom_speed=$(echo "0.0005 * $EFFECT_SPEED" | bc)
+            ffmpeg_cmd="$ffmpeg_cmd[0:v]format=yuv420p,scale=iw*${ZOOM}:ih*${ZOOM},zoompan=z='min(zoom+${zoom_speed},${FINAL_ZOOM})':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${duration}:s=${WIDTH}x${HEIGHT}[scaled];"
+            ;;
         *)
             # 无效果
             ffmpeg_cmd="$ffmpeg_cmd[0:v]format=yuv420p,scale=iw*${ZOOM}:ih*${ZOOM}[scaled];"
@@ -234,6 +241,10 @@ parse_args() {
                 ;;
             -s|--speed)
                 EFFECT_SPEED="$2"
+                shift 2
+                ;;
+            --final-zoom)
+                FINAL_ZOOM="$2"
                 shift 2
                 ;;
             --help)

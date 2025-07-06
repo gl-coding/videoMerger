@@ -1,8 +1,10 @@
 data_dir=jiqimao
 voice=qinghuanv
+name=kumi的成长日记
 filename=$data_dir/result
 #content
 content_file=$filename"_text_rewrite.txt"
+content_file_fix=$filename"_text_rewrite_fix.txt"
 title_file=$filename"_text_title.txt"
 subtitle_file=$filename"_text_subtitle.txt"
 tmp_file=$data_dir/tmp.mp4
@@ -18,6 +20,7 @@ content_video_bg_srt_ass_header_bgm=$filename"_video_bg_srt_ass_header_bgm.mp4"
 src_srt=$filename"_srt.srt"
 corrected_srt=$filename"_srt_corrected.srt"
 srt_ass=$filename"_srt.ass"
+sentence_mapping_file=$filename"_srt_stc_mapping.txt"
 #pic
 local_pic=picture/doutu/013.jpg
 #content_pic=$filename"_pic.jpeg"
@@ -36,8 +39,9 @@ function content_pic_get() {
 
 # 提交获取语音任务
 function voice_gen() {
+    python remove_ending_numbers.py $content_file $content_file_fix
     #提交语音生成任务
-    python clone_voice.py -f $content_file -o $uuid -v $voice
+    python clone_voice.py -f $content_file_fix -o $uuid -v $voice
 }
 
 function download_wavs() {
@@ -60,8 +64,9 @@ function download_wavs() {
 
 function content_video_pic_gen() {
     rm -f $content_video_pic
-    sh image_to_video.sh $content_pic $voice_file $content_video_pic -e fade
+    #sh image_to_video.sh $content_pic $voice_file $content_video_pic -e fade
     #sh image_to_video.sh $content_pic $voice_file $content_video_pic -e kenburns
+    sh image_to_video.sh $content_pic $voice_file $content_video_pic -e zoom_in -s 2.0 --final-zoom 2.0
     #sh image_to_video.sh $content_pic $voice_file $content_video_pic -e move_down   
 }
 
@@ -82,7 +87,8 @@ function srt_fix() {
         exit 1
     fi
     rm -f $corrected_srt
-    python fix_srt.py $content_file $src_srt -o $corrected_srt 
+    rm -f $sentence_mapping_file
+    python fix_srt.py $content_file_fix $src_srt -o $corrected_srt --sentence-output $sentence_mapping_file
 }
 
 function srt_ass_gen() {
@@ -139,7 +145,7 @@ function video_bg_srt_ass_gen() {
 # 添加水印
 function video_bg_srt_ass_header_gen() {
     rm -f $content_video_bg_srt_ass_header
-    ffmpeg -i $content_video_bg_srt_ass -vf "drawtext=text='@版权所有':fontfile=./font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white:x=10:y=10" $content_video_bg_srt_ass_header
+    ffmpeg -i $content_video_bg_srt_ass -vf "drawtext=text='@$name':fontfile=./font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white:x=10:y=10" $content_video_bg_srt_ass_header
 
     #rm -f out2.mp4
     #ffmpeg -i out1.mp4 -vf "drawtext=text='@版权所有':fontfile=./font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white@0.8:x=W-tw-10:y=10:shadowcolor=black:shadowx=2:shadowy=2" out2.mp4
@@ -181,7 +187,19 @@ function gen_video() {
     #run_flag="srt_fix"
     #run_flag="srt_merge"
     #run_flag="add_bgm_rotate"
-    run_flag=$arg
+    if [ "$arg" = "co" ]; then
+        run_flag="content_pic_get"
+    elif [ "$arg" = "re" ]; then
+        run_flag="content_rewrite"
+    elif [ "$arg" == "wav" ]; then
+        run_flag="clear_audio_data|voice_gen|download_wavs"
+    elif [ "$arg" == "sf" ]; then
+        run_flag="srt_gen|srt_fix"
+    elif [ "$arg" == "video" ]; then
+        run_flag="content_video_pic_gen|video_bg_srt_gen|video_bg_srt_ass_gen|video_bg_srt_ass_header_gen|video_add_bgm"
+    else
+        run_flag=$arg
+    fi
     # 使用数组方式分割字符串
     IFS='|' read -ra STEPS <<< "$run_flag"
     for step in "${STEPS[@]}"; do
