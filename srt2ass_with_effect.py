@@ -9,11 +9,13 @@
 支持通过--per-line参数启用逐行关键词分析（每行字幕提取最重要的词）。
 支持通过--dict-file参数指定补充词典文件，文件中每行一个词，这些词会作为NLP分析的补充被高亮显示。
 支持通过--skip-lines参数指定要跳过分析的字幕行号（从1开始），多个行号用逗号分隔。
-用法：python3 srt2ass_with_effect.py input.srt output.ass [--align 5] [--font "行书"] [--size 100] [--color white] [--effects "fade,move,scale"] [--highlight] [--keyword-size 120] [--per-line] [--dict-file words.txt] [--skip-lines "1,3,5"]
+支持通过--effect typewriter参数实现单字逐个显示的打字机效果。
+用法：python3 srt2ass_with_effect.py input.srt output.ass [--align 5] [--font "行书"] [--size 100] [--color white] [--effects "fade,move,scale,typewriter"] [--highlight] [--keyword-size 120] [--per-line] [--dict-file words.txt] [--skip-lines "1,3,5"]
 """
 import sys
 import os
 import srt
+import re
 from datetime import timedelta
 import argparse
 import math
@@ -95,8 +97,11 @@ EFFECTS = {
     "bounce": lambda duration_ms, align_tag: (
         f"{{{align_tag}\\move({VIDEO_WIDTH//2},{VIDEO_HEIGHT//2-50},{VIDEO_WIDTH//2},{VIDEO_HEIGHT//2},0.5,1)\\bord3\\shad2}}"
     ),
+    "typewriter": lambda duration_ms, align_tag: (
+        f"{{{align_tag}\\bord3\\shad2}}"
+    ),
     "none": lambda duration_ms, align_tag: (
-        f"{{{align_tag}\\pos({VIDEO_WIDTH//2},{VIDEO_HEIGHT//2})\\bord3\\shad2}}"
+        f"{{{align_tag}\\bord3\\shad2}}"
     ),
 }
 
@@ -257,6 +262,40 @@ def apply_dual_style(content, primary_color, secondary_color, primary_size, seco
     second_part = content[split_pos:]
     return f"{{\\c{primary_color}\\fs{primary_size}}}{first_part}{{\\c{secondary_color}\\fs{secondary_size}}}{second_part}"
 
+def apply_typewriter_effect(text, duration_ms):
+    """为文本应用打字机效果，每个字符逐个显示"""
+    if not text:
+        return text
+        
+    # 移除现有的样式标签以便处理纯文本
+    # 先保存样式信息
+    style_match = re.match(r'^({\\c[^}]*\\fs\d+})(.*)', text)
+    style_tag = ""
+    content = text
+    
+    if style_match:
+        style_tag = style_match.group(1)
+        content = style_match.group(2)
+    
+    # 计算每个字符的延迟时间
+    char_count = len(content)
+    if char_count <= 1:
+        return text
+        
+    # 每个字符显示的时间间隔
+    interval = duration_ms / (char_count * 1.2)  # 留一些时间让最后的字符可见
+    
+    result = ""
+    current_time = 0
+    
+    # 为每个字符添加延迟显示标签
+    for char in content:
+        # 每个字符从透明到不透明
+        result += f"{style_tag}{{\\alpha&HFF&\\t({int(current_time)},{int(current_time+10)},\\alpha&H00&)}}{char}"
+        current_time += interval
+    
+    return result
+
 def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, color="white", 
             effect="fade", effects=None, color2=None, size2=None, split_pos=0, highlight=False, 
             keyword_size=None, per_line=False, dict_file=None, skip_lines=None):
@@ -403,9 +442,14 @@ def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, 
         # 强制加\anX对齐标签和动画效果
         effect_tag = effect_func(duration_ms, f"\\an{alignment}")
         
+        # 如果是打字机效果，应用特殊处理
+        if current_effect == "typewriter":
+            content = apply_typewriter_effect(content, duration_ms)
+        
         # 移除可能重复的花括号
         effect_tag = effect_tag.rstrip('}')
-        content = content.lstrip('{')
+        if not current_effect == "typewriter":  # 打字机效果已经处理过内容，不需要再处理
+            content = content.lstrip('{')
         
         # 组合所有标签和内容
         text = effect_tag + content
@@ -443,8 +487,8 @@ def main():
     parser.add_argument('--size', type=int, default=100, help='字体大小')
     parser.add_argument('--align', type=int, choices=range(1,10), default=5, help='对齐方式(1-9)')
     parser.add_argument('--color', default='white', help='字体颜色')
-    parser.add_argument('--effect', default='fade', help='单一动画效果')
-    parser.add_argument('--effects', help='多个动画效果，用逗号分隔（如"fade,move,scale"）')
+    parser.add_argument('--effect', default='fade', help='单一动画效果(包括typewriter打字机效果)')
+    parser.add_argument('--effects', help='多个动画效果，用逗号分隔（如"fade,move,typewriter"）')
     parser.add_argument('--color2', help='第二种颜色（用于双重样式）')
     parser.add_argument('--size2', type=int, help='第二种字体大小（用于双重样式）')
     parser.add_argument('--split', type=int, default=0, help='颜色分割位置（用于双重样式）')

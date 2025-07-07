@@ -123,7 +123,7 @@ function cover_srt_gen() {
     cp cover/cover_pic_text_first.jpg $cover_pic_text_first
 
     #生成语音
-    cover_voice_gen $text $cover_pic_dir
+    #cover_voice_gen $text $cover_pic_dir
     #生成字幕
     rm -f $cover_voice_srt
     python srt_gen.py $cover_voice_file $cover_voice_srt 
@@ -132,7 +132,8 @@ function cover_srt_gen() {
     sh image_to_video.sh $cover_pic_text_first $cover_voice_file $cover_pic_video -e zoom_in -s 2.0 --final-zoom 2.0
     #生成ass文件
     rm -f $cover_voice_srt_ass
-    python3 srt2ass_with_effect.py $cover_voice_srt $cover_voice_srt_ass --align 2 --font "鸿雷板书简体-正式版" --size 120 --color white  
+    #python3 srt2ass_with_effect.py $cover_voice_srt $cover_voice_srt_ass --align 2 --font "鸿雷板书简体-正式版" --size 120 --color white  
+    python3 srt2ass_with_effect.py $cover_voice_srt $cover_voice_srt_ass --align 2 --font "鸿雷板书简体-正式版" --size 120 --color white --effect typewriter 
     #mp4合并ass
     rm -f $cover_video_ass
     ffmpeg -i $cover_pic_video -vf "ass=$cover_voice_srt_ass:fontsdir=./font" -c:a copy $cover_video_ass
@@ -141,20 +142,20 @@ function cover_srt_gen() {
 function cover_video_gen_all() {
     # 生成封面视频
     cover_srt_gen "aaa" "今天我们分享的是"
-    cover_srt_gen "bbb" "余华老师的《活着》"
+    # cover_srt_gen "bbb" "余华老师的《活着》"
 
-    # 合并封面视频
-    echo "file 'aaa/cover_video_ass.mp4'" > cover_list.txt
-    echo "file 'bbb/cover_video_ass.mp4'" >> cover_list.txt
+    # # 合并封面视频
+    # echo "file 'aaa/cover_video_ass.mp4'" > cover_list.txt
+    # echo "file 'bbb/cover_video_ass.mp4'" >> cover_list.txt
     
-    # 合并视频
-    rm -f merged_cover.mp4
-    ffmpeg -f concat -safe 0 -i cover_list.txt -c copy merged_cover.mp4
+    # # 合并视频
+    # rm -f merged_cover.mp4
+    # ffmpeg -f concat -safe 0 -i cover_list.txt -c copy merged_cover.mp4
     
-    echo "封面视频合并完成: cover/merged_cover.mp4"
+    # echo "封面视频合并完成: cover/merged_cover.mp4"
     
-    # 删除临时文件
-    rm cover_list.txt
+    # # 删除临时文件
+    # rm cover_list.txt
 }
 
 #voice_gen
