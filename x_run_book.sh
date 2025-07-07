@@ -128,15 +128,20 @@ function cover_srt_gen() {
     #生成字幕
     rm -f $cover_voice_srt
     python srt_gen.py $cover_voice_file $cover_voice_srt 
-    if [ $color != "null" ]; then
+    if [ $color != "black" ]; then
         echo "图片背景视频"
-        cp cover/cover_pic_text_first.jpg $cover_pic_text_first
+        if [ -f $color ]; then
+            cp $color $cover_pic_text_first
+        else
+            echo "图片不存在，使用默认图片"
+        fi
         #生成图片视频
         rm -f $cover_pic_video
         sh image_to_video.sh $cover_pic_text_first $cover_voice_file $cover_pic_video -e zoom_in -s 2.0 --final-zoom 2.0
     else
         echo "纯色背景视频"
-        sh image_to_video.sh --color-only -b $color cover_voice_file $cover_pic_video
+        rm -f $cover_pic_video
+        sh image_to_video.sh --color-only -b black $cover_voice_file $cover_pic_video
     fi
     #字幕校验
     #todo
@@ -151,10 +156,14 @@ function cover_srt_gen() {
 
 function cover_video_gen_all() {
     # 生成封面视频
-    cover_srt_gen "aaa" "今天我们分享的是"
+    #cover_srt_gen "aaa" "今天我们分享的是" "null"
+    #cover_srt_gen "ccc" "今天我们分享的是" cover/cover_pic_text_first.jpg
+    cover_srt_gen "ccc" "今天我们分享的是" black
     # cover_srt_gen "bbb" "余华老师的《活着》"
+}
 
-    # # 合并封面视频
+function merge_cover_video_all() {
+    # 合并封面视频
     # echo "file 'aaa/cover_video_ass.mp4'" > cover_list.txt
     # echo "file 'bbb/cover_video_ass.mp4'" >> cover_list.txt
     
@@ -165,7 +174,7 @@ function cover_video_gen_all() {
     # echo "封面视频合并完成: cover/merged_cover.mp4"
     
     # # 删除临时文件
-    # rm cover_list.txt
+    rm cover_list.txt
 }
 
 #voice_gen
