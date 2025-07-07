@@ -83,10 +83,6 @@ function cover_voice_gen() {
         fi
         sleep 10
     done
-    #合并语音
-    #ffmpeg -i $voice_file -i $cover_pic_video -c:v libx264 -c:a aac -strict experimental -shortest $content_video_bgm
-    #合并字幕
-    #ffmpeg -i $content_video_bgm -vf "ass=$srt_ass:fontsdir=./font" -c:a copy $content_video_bgm_ass
 }
 
 function download_wavs() {
@@ -176,16 +172,17 @@ function cover_video_gen_all() {
 
 function merge_cover_video_all() {
     # 合并封面视频
-    # echo "file 'aaa/cover_video_ass.mp4'" > cover_list.txt
-    # echo "file 'bbb/cover_video_ass.mp4'" >> cover_list.txt
+    for dir in aaa ccc; do
+        echo "file '$dir/cover_video_ass.mp4'" >> cover_list.txt
+    done
     
-    # # 合并视频
-    # rm -f merged_cover.mp4
-    # ffmpeg -f concat -safe 0 -i cover_list.txt -c copy merged_cover.mp4
+    # 合并视频
+    rm -f merged_cover.mp4
+    ffmpeg -f concat -safe 0 -i cover_list.txt -c copy merged_cover.mp4
     
-    # echo "封面视频合并完成: cover/merged_cover.mp4"
+    echo "封面视频合并完成: cover/merged_cover.mp4"
     
-    # # 删除临时文件
+    # 删除临时文件
     rm cover_list.txt
 }
 
