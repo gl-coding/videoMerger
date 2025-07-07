@@ -106,8 +106,10 @@ function download_wavs() {
 function cover_srt_gen() {
     dir=$1
     text=$2
-    color=$3
-    echo "cover_srt_gen $dir $text $color"
+    bg_color=$3
+    font_color=$4
+    pos=$5
+    echo "cover_srt_gen $dir $text $bg_color $font_color $pos"
     cover_pic_dir=$dir
     cover_pic=$cover_pic_dir/cover_pic.jpg
     cover_pic_text=$cover_pic_dir/cover_pic_text.jpg
@@ -128,16 +130,18 @@ function cover_srt_gen() {
     #生成字幕
     rm -f $cover_voice_srt
     python srt_gen.py $cover_voice_file $cover_voice_srt 
-    if [ $color != "black" ]; then
+    if [ $bg_color != "black" ]; then
         echo "图片背景视频"
-        if [ -f $color ]; then
-            cp $color $cover_pic_text_first
+        if [ -f $bg_color ]; then
+            cp $bg_color $cover_pic_text_first
+            #生成图片视频
+            rm -f $cover_pic_video
+            sh image_to_video.sh $cover_pic_text_first $cover_voice_file $cover_pic_video -e zoom_in -s 2.0 --final-zoom 2.0
         else
-            echo "图片不存在，使用默认图片"
+            echo "图片不存在，使用黑色背景图片"
+            rm -f $cover_pic_video
+            sh image_to_video.sh --color-only -b black $cover_voice_file $cover_pic_video
         fi
-        #生成图片视频
-        rm -f $cover_pic_video
-        sh image_to_video.sh $cover_pic_text_first $cover_voice_file $cover_pic_video -e zoom_in -s 2.0 --final-zoom 2.0
     else
         echo "纯色背景视频"
         rm -f $cover_pic_video
@@ -146,9 +150,17 @@ function cover_srt_gen() {
     #字幕校验
     #todo
     #生成ass文件
+    if [ $pos == "center" ]; then
+        align=5
+    elif [ $pos == "bottom" ]; then
+        align=2
+    else
+        align=8
+    fi
     rm -f $cover_voice_srt_ass
     #python3 srt2ass_with_effect.py $cover_voice_srt $cover_voice_srt_ass --align 2 --font "鸿雷板书简体-正式版" --size 120 --color white  
-    python3 srt2ass_with_effect.py $cover_voice_srt $cover_voice_srt_ass --align 2 --font "鸿雷板书简体-正式版" --size 120 --color white --effect typewriter 
+    python3 srt2ass_with_effect.py $cover_voice_srt $cover_voice_srt_ass --align $align \
+        --font "鸿雷板书简体-正式版" --size 120 --color $font_color --effect typewriter 
     #mp4合并ass
     rm -f $cover_video_ass
     ffmpeg -i $cover_pic_video -vf "ass=$cover_voice_srt_ass:fontsdir=./font" -c:a copy $cover_video_ass
@@ -157,8 +169,8 @@ function cover_srt_gen() {
 function cover_video_gen_all() {
     # 生成封面视频
     #cover_srt_gen "aaa" "今天我们分享的是" "null"
-    #cover_srt_gen "ccc" "今天我们分享的是" cover/cover_pic_text_first.jpg
-    cover_srt_gen "ccc" "今天我们分享的是" black
+    cover_srt_gen "aaa" "今天我们分享的是" cover/cover_pic_text_first.jpg white "bottom"
+    cover_srt_gen "ccc" "余华老师的《活着》" black red center
     # cover_srt_gen "bbb" "余华老师的《活着》"
 }
 
