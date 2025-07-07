@@ -49,10 +49,10 @@ function cover_video_gen() {
 
 # 获取内容图片
 function content_pic_get() {
-    python3 coze_content_pic_gen.py $data_dir "$(cat $title_file)"
+    local_dir=$1
+    local_title_file=$2
+    python3 coze_content_pic_gen.py $dir "$(cat $local_title_file)"
 }
-
-#content_pic_get
 
 # 提交获取语音任务
 function voice_gen() {
@@ -65,18 +65,19 @@ function voice_gen() {
 function cover_voice_gen() {
     clear_audio_data
     text=$1
+    dir=$2
     name=$2
-    mkdir -p $name
-    wavfile=$name/result.wav
+    mkdir -p $dir
+    wavfile=$dir/result.wav
     rm -f $wavfile
-    echo $text > $name/$name.txt
+    echo $text > $dir/$name.txt
     #提交语音生成任务
-    python clone_voice.py -f $name/$name.txt -o $uuid -v $voice
+    python clone_voice.py -f $dir/$name.txt -o $uuid -v $voice
     #下载语音
     rm -f $wavfile
     while true; do
         if [ ! -f $wavfile ]; then
-            python download_wavs.py 4 --delete-after-download -d $name
+            python download_wavs.py 4 --delete-after-download -d $dir
         else
             echo "语音文件已存在"
             break
@@ -163,7 +164,7 @@ function cover_srt_gen() {
 }
 
 function cover_video_gen_all() {
-    # 生成封面视频
+    # 生成短视频
     #cover_srt_gen "aaa" "今天我们分享的是" "null"
     cover_srt_gen "aaa" "今天我们分享的是" cover/cover_pic_text_first.jpg white "bottom"
     cover_srt_gen "ccc" "余华老师的《活着》" black red center
@@ -186,15 +187,14 @@ function merge_cover_video_all() {
     rm cover_list.txt
 }
 
-#voice_gen
-#download_wavs
-#exit
-
 function content_video_pic_gen() {
-    rm -f $content_video_pic
+    local_pic=$1
+    local_voice_file=$2
+    local_content_video=$3
+    rm -f $local_content_video
     #sh image_to_video.sh $content_pic $voice_file $content_video_pic -e fade
     #sh image_to_video.sh $content_pic $voice_file $content_video_pic -e kenburns
-    sh image_to_video.sh $content_pic $voice_file $content_video_pic -e zoom_in -s 2.0 --final-zoom 2.0
+    sh image_to_video.sh $local_pic $local_voice_file $local_content_video -e zoom_in -s 2.0 --final-zoom 2.0
     #sh image_to_video.sh $content_pic $voice_file $content_video_pic -e move_down   
 }
 
@@ -202,75 +202,91 @@ function content_video_pic_gen() {
 
 function srt_gen() {
     #语音转字幕
-    rm -f $src_srt
-    python srt_gen.py $voice_file $src_srt 
+    local_voice=$1
+    local_srt=$2
+    rm -f $local_srt
+    python srt_gen.py $local_voice $local_srt 
 }
 
 #srt_gen
 
 function srt_fix() {
     #字幕纠错
-    if [ ! -f $src_srt ]; then
+    local_srt=$1
+    local_content=$2
+    local_correct_srt=$3
+    if [ ! -f $local_srt ]; then
         echo "字幕文件不存在，exit"
         exit 1
     fi
-    rm -f $corrected_srt
-    rm -f $sentence_mapping_file
-    python fix_srt.py $src_srt $content_file_fix -o $corrected_srt 
+    rm -f $local_correct_srt
+    python fix_srt.py $local_srt $local_content -o $local_correct_srt
 }
 
 function srt_ass_gen() {
-    ## 特效
-    # fade（默认）- 淡入淡出效果
-    # move_right - 从左向右移动
-    # move_left - 从右向左移动
-    # move_up - 从下向上移动
-    # move_down - 从上向下移动
-    # zoom - 放大效果
-    # rotate - 360度旋转
-    # shake - 抖动效果
-    # wave - 波浪效果
-    # none - 无特效 
-    #生成ass文件
-    #rm -f jiqimao/result_srt.ass
-    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 120 --color white --effect zoom --color2 red --split 3 --size2 160 --highlight
-    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 120 --color white --effect zoom  --highlight --keyword-size 160 
-    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 120 --color white --effect zoom  --highlight --keyword-size 160 --per-line --dict-file jiqimao/dict.txt --skip-lines "1,2"
-    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 120 --color white  --highlight --keyword-size 160 --per-line --dict-file jiqimao/dict.txt --skip-lines "1,2" --effects "fade,move_right,move_left"
-    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 120 --color white  --highlight --keyword-size 160 --per-line --dict-file jiqimao/dict.txt --skip-lines "1,2" --effect zoom
-    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect rotate
-    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect shake
-    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect wave
-    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect bounce
-    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect move_up
-    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect move_down
-    #python3 srt2ass_with_effect.py jiqimao/result_srt.srt jiqimao/result_srt.ass --align 5 --font "鸿雷板书简体-正式版" --size 136 --color red --effect move_right
-    python3 srt2ass_with_effect.py $corrected_srt $srt_ass --align 5 --font "鸿雷板书简体-正式版" --size 120 --color white  --effect zoom
+    local_correct_srt=$1
+    local_srt_ass=$2
+    python3 srt2ass_with_effect.py  --align 5 --font "鸿雷板书简体-正式版" --size 120 --color red --effect typewriter $local_correct_srt $local_srt_ass
 }
 
-#srt_ass_gen
-#exit 0
-
-# 添加背景文字
+# 添加背景文字（可选）
 function video_bg_srt_gen() {
     rm -f $content_video_bg_srt
     ffmpeg -i $content_video_pic -vf "drawtext=text='《$(cat $title_file)》':fontfile=./font/Aa剑豪体.ttf:fontsize=160:fontcolor=red@0.8:x=(W-tw)/2:y=100:" $content_video_bg_srt
 }
 
-#video_bg_srt_gen
-#exit 0
-
 # 用新字体生成mp4字幕文件
-function video_bg_srt_ass_gen() {
-    rm -f $content_video_bg_srt_ass
+function gen_ass_video() {
+    local_srt_video=$1
+    local_ass_file=$2
+    local_ass_video=$3
+    rm -f $local_ass_video
     #ffmpeg -i jiqimao/result_video_rotate.mp4 -vf "ass=jiqimao/result_srt.ass" -c:a copy output.mp4
-    ffmpeg -i $content_video_bg_srt -vf "ass=$srt_ass:fontsdir=./font" -c:a copy $content_video_bg_srt_ass
+    ffmpeg -i $local_srt_video -vf "ass=$local_ass_file:fontsdir=./font" -c:a copy $local_ass_video
 }
 
-#video_bg_srt_ass_gen
-#exit 0
+function content_video_gen() {
+    dir=$1
+    pic_content_file=$dir/pic_content.txt
+    content_file=$dir/content.txt
+    content_file_fix=$dir/content_fix.txt
+    content_video=$dir/video.mp4
+    content_video_ass=$dir/video_ass.mp4
+    content_voice_file=$dir/result.wav
+    content_srt=$dir/content.srt
+    content_correct_srt=$dir/content_correct.srt
+    content_correct_ass=$dir/content_correct.ass
+    content_pic=$dir/pic_cover_0.jpg
 
-# 添加水印
+    mkdir -p $dir
+
+    #生成内容图
+    echo "活着" > $pic_content_file
+    #content_pic_get $dir $pic_content_file
+    #生成语音
+    echo "我步入丛林，因为我希望生活得有意义……以免在临终时，发现自己从来没有活过。" > $content_file
+    #cover_voice_gen "$(cat $content_file)" $dir
+    #生成视频
+    #content_video_pic_gen $content_pic $content_voice_file $content_video
+    #生成字幕
+    #srt_gen $content_voice_file $content_srt 
+    #原文纠错
+
+    #字幕纠错
+    #srt_fix  $content_srt $content_file_fix $content_correct_srt
+    #exit
+    #字幕转ass
+    #srt_ass_gen $content_correct_srt $content_correct_ass
+    #exit
+    #生成带ass字幕的视频
+    gen_ass_video $content_video $content_correct_ass $content_video_ass
+}
+
+function content_video_gen_all() {
+    content_video_gen ddd
+}
+
+# 整体添加水印
 function video_bg_srt_ass_header_gen() {
     rm -f $content_video_bg_srt_ass_header
     ffmpeg -i $content_video_bg_srt_ass -vf "drawtext=text='@$name':fontfile=./font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white:x=10:y=10" $content_video_bg_srt_ass_header
@@ -281,6 +297,7 @@ function video_bg_srt_ass_header_gen() {
 
 #video_bg_srt_ass_header_gen
 
+#整体添加bgm
 function video_add_bgm() {
     # 循环背景音乐，音量20%，3秒淡入淡出
     rm -f $content_video_bg_srt_ass_header_bgm
