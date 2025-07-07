@@ -192,10 +192,10 @@ function content_video_pic_gen() {
     local_voice_file=$2
     local_content_video=$3
     rm -f $local_content_video
-    #sh image_to_video.sh $content_pic $voice_file $content_video_pic -e fade
-    #sh image_to_video.sh $content_pic $voice_file $content_video_pic -e kenburns
-    sh image_to_video.sh $local_pic $local_voice_file $local_content_video -e zoom_in -s 2.0 --final-zoom 2.0
-    #sh image_to_video.sh $content_pic $voice_file $content_video_pic -e move_down   
+    #sh image_to_video.sh $local_pic $local_voice_file $local_content_video -e kenburns
+    #sh image_to_video.sh $local_pic $local_voice_file $local_content_video -e fade
+    #sh image_to_video.sh $local_pic $local_voice_file $local_content_video -e move_down
+    sh image_to_video.sh $local_pic $local_voice_file $local_content_video 
 }
 
 #content_video_pic_gen
@@ -267,7 +267,7 @@ function content_video_gen() {
     echo "我步入丛林，因为我希望生活得有意义……以免在临终时，发现自己从来没有活过。" > $content_file
     #cover_voice_gen "$(cat $content_file)" $dir
     #生成视频
-    #content_video_pic_gen $content_pic $content_voice_file $content_video
+    content_video_pic_gen $content_pic $content_voice_file $content_video
     #生成字幕
     #srt_gen $content_voice_file $content_srt 
     #原文纠错
@@ -279,7 +279,7 @@ function content_video_gen() {
     #srt_ass_gen $content_correct_srt $content_correct_ass
     #exit
     #生成带ass字幕的视频
-    gen_ass_video $content_video $content_correct_ass $content_video_ass
+    #gen_ass_video $content_video $content_correct_ass $content_video_ass
 }
 
 function content_video_gen_all() {
