@@ -13,6 +13,7 @@ AUDIO_VOLUME="1.0"     # 音频音量
 EFFECT="none"          # 动态效果
 EFFECT_SPEED="1.0"     # 效果速度
 FINAL_ZOOM="1.5"       # 最终放大倍数
+COLOR_ONLY="false"     # 是否只生成纯色背景视频
 
 # 显示帮助信息
 show_help() {
@@ -20,6 +21,7 @@ show_help() {
     echo ""
     echo "用法:"
     echo "  $0 [选项] <图片文件> <音频文件> <输出视频文件>"
+    echo "  $0 [选项] --color-only <音频文件> <输出视频文件>"
     echo ""
     echo "选项:"
     echo "  -w, --width WIDTH           输出宽度(默认: 1920)"
@@ -33,6 +35,7 @@ show_help() {
     echo "                                    move_up, move_down, fade, swing, zoom_in"
     echo "  -s, --speed SPEED           效果速度(默认: 1.0)"
     echo "  --final-zoom SCALE          最终放大倍数(默认: 1.5，仅用于 zoom_in 效果)"
+    echo "  --color-only                只生成纯色背景视频，不需要输入图片文件"
     echo "  --help                      显示此帮助信息"
     echo ""
     echo "示例:"
@@ -44,6 +47,9 @@ show_help() {
     echo ""
     echo "  # 添加移动效果"
     echo "  $0 -e move_right -s 0.5 image.jpg audio.wav output.mp4"
+    echo ""
+    echo "  # 生成纯色背景视频"
+    echo "  $0 --color-only -b blue audio.wav output.mp4"
 }
 
 # 检查依赖
@@ -207,6 +213,66 @@ generate_video() {
     fi
 }
 
+# 生成纯色背景视频
+generate_color_video() {
+    local audio_file="$1"
+    local output_file="$2"
+    local duration="$3"
+    
+    echo ""
+    echo "开始生成纯色背景视频..."
+    echo "背景颜色: $BG_COLOR"
+    echo "音频文件: $audio_file"
+    echo "输出文件: $output_file"
+    echo "视频时长: ${duration}秒"
+    echo "输出尺寸: ${WIDTH}x${HEIGHT}"
+    echo "帧率: ${FPS}fps"
+    echo "音频音量: ${AUDIO_VOLUME}"
+    
+    # 确保宽度和高度都是偶数（H.264编码器要求）
+    WIDTH=$(( (WIDTH + 1) / 2 * 2 ))
+    HEIGHT=$(( (HEIGHT + 1) / 2 * 2 ))
+    
+    # 构建FFmpeg命令
+    local ffmpeg_cmd="ffmpeg -y"
+    ffmpeg_cmd="$ffmpeg_cmd -f lavfi -i color=c=${BG_COLOR}:s=${WIDTH}x${HEIGHT}:r=${FPS}"
+    ffmpeg_cmd="$ffmpeg_cmd -i \"$audio_file\""
+    
+    # 添加淡出效果
+    local fade_out_start=$(echo "${duration}-1" | bc)
+    ffmpeg_cmd="$ffmpeg_cmd -filter_complex \"[0:v]fade=t=out:st=${fade_out_start}:d=1[video];"
+    ffmpeg_cmd="$ffmpeg_cmd[1:a]volume=${AUDIO_VOLUME}[audio]\""
+    
+    ffmpeg_cmd="$ffmpeg_cmd -map \"[video]\" -map \"[audio]\""
+    ffmpeg_cmd="$ffmpeg_cmd -t ${duration} -r ${FPS} -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k -pix_fmt yuv420p \"$output_file\""
+    
+    echo ""
+    echo "执行命令:"
+    echo "$ffmpeg_cmd"
+    echo ""
+    
+    # 执行命令
+    eval $ffmpeg_cmd
+    
+    if [[ $? -eq 0 ]]; then
+        echo ""
+        echo "✅ 纯色背景视频生成完成！"
+        echo "输出文件: $output_file"
+        
+        # 显示文件信息
+        echo ""
+        echo "输出文件信息:"
+        ffprobe -v quiet -show_entries format=duration,format=size -of csv=p=0 "$output_file" | while IFS=, read duration size; do
+            echo "  时长: ${duration}秒"
+            echo "  大小: $((size / 1024 / 1024))MB"
+        done
+    else
+        echo ""
+        echo "❌ 生成失败！"
+        exit 1
+    fi
+}
+
 # 解析命令行参数
 parse_args() {
     while [[ $# -gt 0 ]]; do
@@ -247,6 +313,10 @@ parse_args() {
                 FINAL_ZOOM="$2"
                 shift 2
                 ;;
+            --color-only)
+                COLOR_ONLY="true"
+                shift
+                ;;
             --help)
                 show_help
                 exit 0
@@ -258,16 +328,30 @@ parse_args() {
                 ;;
             *)
                 # 位置参数
-                if [[ -z "$IMAGE_FILE" ]]; then
-                    IMAGE_FILE="$1"
-                elif [[ -z "$AUDIO_FILE" ]]; then
-                    AUDIO_FILE="$1"
-                elif [[ -z "$OUTPUT_FILE" ]]; then
-                    OUTPUT_FILE="$1"
+                if [[ "$COLOR_ONLY" == "true" ]]; then
+                    # 纯色背景模式，不需要图片文件
+                    if [[ -z "$AUDIO_FILE" ]]; then
+                        AUDIO_FILE="$1"
+                    elif [[ -z "$OUTPUT_FILE" ]]; then
+                        OUTPUT_FILE="$1"
+                    else
+                        echo "错误: 参数过多"
+                        show_help
+                        exit 1
+                    fi
                 else
-                    echo "错误: 参数过多"
-                    show_help
-                    exit 1
+                    # 普通模式
+                    if [[ -z "$IMAGE_FILE" ]]; then
+                        IMAGE_FILE="$1"
+                    elif [[ -z "$AUDIO_FILE" ]]; then
+                        AUDIO_FILE="$1"
+                    elif [[ -z "$OUTPUT_FILE" ]]; then
+                        OUTPUT_FILE="$1"
+                    else
+                        echo "错误: 参数过多"
+                        show_help
+                        exit 1
+                    fi
                 fi
                 shift
                 ;;
@@ -281,22 +365,50 @@ main() {
     parse_args "$@"
     
     # 检查必需参数
-    if [[ -z "$IMAGE_FILE" ]] || [[ -z "$AUDIO_FILE" ]] || [[ -z "$OUTPUT_FILE" ]]; then
-        echo "错误: 缺少必需参数"
-        echo ""
-        show_help
+    if [[ "$COLOR_ONLY" == "true" ]]; then
+        # 纯色背景模式
+        if [[ -z "$AUDIO_FILE" ]] || [[ -z "$OUTPUT_FILE" ]]; then
+            echo "错误: 纯色背景模式下需要指定音频文件和输出文件"
+            echo ""
+            show_help
+            exit 1
+        fi
+    else
+        # 普通模式
+        if [[ -z "$IMAGE_FILE" ]] || [[ -z "$AUDIO_FILE" ]] || [[ -z "$OUTPUT_FILE" ]]; then
+            echo "错误: 缺少必需参数"
+            echo ""
+            show_help
+            exit 1
+        fi
+    fi
+    
+    # 检查依赖
+    check_dependencies
+    
+    # 检查音频文件
+    if [[ ! -f "$AUDIO_FILE" ]]; then
+        echo "错误: 音频文件不存在: $AUDIO_FILE"
         exit 1
     fi
     
-    # 检查依赖和文件
-    check_dependencies
-    check_files "$IMAGE_FILE" "$AUDIO_FILE"
+    # 如果不是纯色背景模式，检查图片文件
+    if [[ "$COLOR_ONLY" != "true" ]]; then
+        if [[ ! -f "$IMAGE_FILE" ]]; then
+            echo "错误: 图片文件不存在: $IMAGE_FILE"
+            exit 1
+        fi
+    fi
     
     # 获取音频时长
     local duration=$(get_audio_duration "$AUDIO_FILE")
     
-    # 生成视频
-    generate_video "$IMAGE_FILE" "$AUDIO_FILE" "$OUTPUT_FILE" "$duration"
+    # 根据模式生成视频
+    if [[ "$COLOR_ONLY" == "true" ]]; then
+        generate_color_video "$AUDIO_FILE" "$OUTPUT_FILE" "$duration"
+    else
+        generate_video "$IMAGE_FILE" "$AUDIO_FILE" "$OUTPUT_FILE" "$duration"
+    fi
 }
 
 # 运行主函数

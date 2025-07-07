@@ -106,7 +106,8 @@ function download_wavs() {
 function cover_srt_gen() {
     dir=$1
     text=$2
-    echo "cover_srt_gen $dir $text"
+    color=$3
+    echo "cover_srt_gen $dir $text $color"
     cover_pic_dir=$dir
     cover_pic=$cover_pic_dir/cover_pic.jpg
     cover_pic_text=$cover_pic_dir/cover_pic_text.jpg
@@ -120,16 +121,25 @@ function cover_srt_gen() {
     cover_video_wav=$cover_pic_dir/cover_video_wav.mp3
 
     mkdir -p $cover_pic_dir
-    cp cover/cover_pic_text_first.jpg $cover_pic_text_first
 
+    #cp cover/cover_pic_text_first.jpg $cover_pic_text_first
     #生成语音
-    #cover_voice_gen $text $cover_pic_dir
+    cover_voice_gen $text $cover_pic_dir
     #生成字幕
     rm -f $cover_voice_srt
     python srt_gen.py $cover_voice_file $cover_voice_srt 
-    #生成图片视频
-    rm -f $cover_pic_video
-    sh image_to_video.sh $cover_pic_text_first $cover_voice_file $cover_pic_video -e zoom_in -s 2.0 --final-zoom 2.0
+    if [ $color != "null" ]; then
+        echo "图片背景视频"
+        cp cover/cover_pic_text_first.jpg $cover_pic_text_first
+        #生成图片视频
+        rm -f $cover_pic_video
+        sh image_to_video.sh $cover_pic_text_first $cover_voice_file $cover_pic_video -e zoom_in -s 2.0 --final-zoom 2.0
+    else
+        echo "纯色背景视频"
+        sh image_to_video.sh --color-only -b $color cover_voice_file $cover_pic_video
+    fi
+    #字幕校验
+    #todo
     #生成ass文件
     rm -f $cover_voice_srt_ass
     #python3 srt2ass_with_effect.py $cover_voice_srt $cover_voice_srt_ass --align 2 --font "鸿雷板书简体-正式版" --size 120 --color white  
