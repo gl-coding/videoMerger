@@ -468,6 +468,41 @@ def find_original_text(original_text, clean_text):
     end_pos = original_pos
     return original_text[start_pos:end_pos].strip()
 
+def print_large_char_diff_mappings(mappings, threshold=1):
+    """打印字符差值绝对值大于阈值的映射"""
+    print(f"\n字符差值绝对值大于{threshold}的映射:")
+    found = False
+    
+    for mapping in mappings:
+        if abs(mapping['char_diff']) > threshold:
+            found = True
+            print(f"\n字幕行号: {mapping['subtitle_number']}")
+            print(f"字幕: {mapping['subtitle_text']}")
+            print(f"原文短句: {mapping['original_segment']}")
+            print(f"字符差值: {mapping['char_diff']}")
+            print(f"相似度: {mapping['similarity']:.2f}")
+            print(f"原文长句: {mapping['original_sentence']}")
+            print(f"前一句: {mapping['prev_sentence']}")
+            print(f"后一句: {mapping['next_sentence']}")
+            print(f"前一句+原文短句: {mapping['combined_prev_segment']}")
+            
+            # 计算并显示组合文本相似度
+            combined_text = mapping['combined_prev_segment']
+            subtitle_text = mapping['subtitle_text']
+            if combined_text != "null" and subtitle_text:
+                clean_combined = clean_text_for_comparison(combined_text)
+                clean_subtitle = clean_text_for_comparison(subtitle_text)
+                combined_similarity = difflib.SequenceMatcher(None, clean_combined, clean_subtitle).ratio()
+                print(f"前一句+原文短句与字幕的相似度: {combined_similarity:.2f}")
+                # 显示使用了哪个版本的文本
+                if combined_similarity > mapping['similarity'] + 0.1:
+                    print("✓ 使用组合文本进行更正（相似度更高）")
+                else:
+                    print("✓ 使用原文短句进行更正")
+    
+    if not found:
+        print("未发现字符差值绝对值大于阈值的映射。")
+
 def generate_sentence_mapping(original_text_path, srt_path, output_path, corrected_srt_path=None):
     """生成字幕文件语句和原文语句的映射文件，并可选择同时更正字幕"""
     # 读取原始文本
@@ -673,11 +708,25 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
                     'combined_prev_segment': prev_sentence + best_match_segment if prev_sentence != "null" else best_match_segment
                 }
                 
+                # 计算组合文本的相似度
+                combined_text = mapping_info['combined_prev_segment']
+                if combined_text != "null" and subtitle_text:
+                    clean_combined = clean_text_for_comparison(combined_text)
+                    clean_subtitle = clean_text_for_comparison(subtitle_text)
+                    combined_similarity = difflib.SequenceMatcher(None, clean_combined, clean_subtitle).ratio()
+                    mapping_info['combined_similarity'] = combined_similarity
+                else:
+                    mapping_info['combined_similarity'] = 0.0
+                
                 sentence_mappings.append(mapping_info)
                 
                 # 如果需要更正字幕，存储映射关系
                 if corrected_srt_path:
-                    subtitle_corrections[subtitle_number] = best_match_segment
+                    # 如果组合文本的相似度更高，使用组合文本
+                    if mapping_info['combined_similarity'] > mapping_info['similarity'] + 0.1:  # 相似度提高超过0.1才使用组合文本
+                        subtitle_corrections[subtitle_number] = mapping_info['combined_prev_segment']
+                    else:
+                        subtitle_corrections[subtitle_number] = best_match_segment
         
         else:
             # 如果没有找到匹配，记录空映射
@@ -707,6 +756,39 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
                    f"{mapping['combined_prev_segment']}\n")
     
     print(f"映射文件已生成：{output_path}")
+    
+    # 生成最终修正映射文件
+    corrected_mapping_path = os.path.join(os.path.dirname(output_path), 
+                                        os.path.splitext(os.path.basename(output_path))[0] + "_final.txt")
+    
+    with open(corrected_mapping_path, 'w', encoding='utf-8') as f:
+        # 写入表头
+        f.write("字幕行号\t字幕\t修正文本\t使用类型\t原相似度\t修正后相似度\n")
+        # 写入映射数据
+        for mapping in sentence_mappings:
+            subtitle_number = mapping['subtitle_number']
+            subtitle_text = mapping['subtitle_text']
+            original_similarity = mapping['similarity']
+            combined_similarity = mapping.get('combined_similarity', 0.0)
+            
+            # 确定使用的文本和类型
+            if combined_similarity > original_similarity + 0.1:
+                corrected_text = mapping['combined_prev_segment']
+                use_type = "组合文本"
+                final_similarity = combined_similarity
+            else:
+                corrected_text = mapping['original_segment']
+                use_type = "原文短句"
+                final_similarity = original_similarity
+            
+            f.write(f"{subtitle_number}\t{subtitle_text}\t{corrected_text}\t{use_type}\t"
+                   f"{original_similarity:.2f}\t{final_similarity:.2f}\n")
+    
+    print(f"最终修正映射文件已生成：{corrected_mapping_path}")
+    
+    # 分析字符差值较大的映射
+    print("\n分析字符差值较大的映射...")
+    print_large_char_diff_mappings(sentence_mappings)
     
     # 如果需要生成更正后的字幕文件
     if corrected_srt_path and subtitle_corrections:
