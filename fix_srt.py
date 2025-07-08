@@ -341,17 +341,20 @@ def correct_srt_with_mapping(original_text_path, srt_path, output_path):
     return corrected_subtitles
 
 def print_low_similarity_mappings(mappings, threshold=0.8):
-    """打印相似度低于阈值的映射"""
-    print("\n相似度低于 {:.2f} 的映射:".format(threshold))
+    """打印相似度低于阈值且字符差值不为0的映射"""
+    print(f"\n相似度低于 {threshold:.2f} 且字符差值不为0的映射:")
     print("-" * 80)
     low_similarity_count = 0
     
     for mapping in mappings:
-        subtitle_text, original_segment, char_diff, similarity = mapping[0], mapping[1], mapping[2], mapping[3]
-        original_sentence, prev_sentence, next_sentence = mapping[4], mapping[5], mapping[6]
+        subtitle_number, subtitle_text = mapping[0], mapping[1]
+        original_segment, char_diff, similarity = mapping[2], mapping[3], mapping[4]
+        original_sentence, prev_sentence, next_sentence = mapping[5], mapping[6], mapping[7]
+        segments_str = mapping[8] if len(mapping) > 8 else ""  # 获取短句集合，如果存在的话
         
-        if similarity < threshold:
+        if similarity < threshold and char_diff != 0:
             low_similarity_count += 1
+            print(f"字幕行号: {subtitle_number}")
             print(f"字幕: {subtitle_text}")
             print(f"原文短句: {original_segment}")
             print(f"字符差值: {char_diff}")
@@ -359,9 +362,10 @@ def print_low_similarity_mappings(mappings, threshold=0.8):
             print(f"原文长句: {original_sentence}")
             print(f"前一句: {prev_sentence}")
             print(f"后一句: {next_sentence}")
+            print(f"短句集合: {segments_str}")
             print("-" * 80)
     
-    print(f"总共有 {low_similarity_count} 个相似度低于 {threshold} 的映射")
+    print(f"总共有 {low_similarity_count} 个相似度低于 {threshold} 且字符差值不为0的映射")
 
 def find_context_sentences(original_text, segment, original_sentence):
     """找出原文短句在原文长句中的前一句和后一句"""
@@ -473,7 +477,7 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
     """生成字幕文件语句和原文语句的映射文件，并可选择同时更正字幕"""
     # 读取原始文本
     with open(original_text_path, 'r', encoding='utf-8') as f:
-        original_text = f.read()
+        original_text = f.read().strip()
     
     # 解析SRT文件
     subtitles = parse_srt(srt_path)
@@ -486,11 +490,11 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
     i = 0
     while i < len(original_sentences):
         if i + 1 < len(original_sentences) and original_sentences[i+1] in '。！？!?':
-            processed_sentences.append(original_sentences[i] + original_sentences[i+1])
+            processed_sentences.append((original_sentences[i] + original_sentences[i+1]).strip())
             i += 2
         else:
             if original_sentences[i].strip():  # 只添加非空句子
-                processed_sentences.append(original_sentences[i])
+                processed_sentences.append(original_sentences[i].strip())
             i += 1
     
     # 分割原文为短句
@@ -501,15 +505,15 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
     i = 0
     while i < len(original_segments):
         if i + 1 < len(original_segments) and original_segments[i+1] in '。，；：！？,.;:!?':
-            processed_segments.append(original_segments[i] + original_segments[i+1])
+            processed_segments.append((original_segments[i] + original_segments[i+1]).strip())
             i += 2
         else:
             if original_segments[i].strip():  # 只添加非空句子
-                processed_segments.append(original_segments[i])
+                processed_segments.append(original_segments[i].strip())
             i += 1
     
     # 过滤太短的片段
-    processed_segments = [seg for seg in processed_segments if len(clean_text_for_comparison(seg)) > 2]
+    processed_segments = [seg.strip() for seg in processed_segments if len(clean_text_for_comparison(seg)) > 2]
     
     print(f"原文长句数: {len(processed_sentences)}")
     print(f"原文短句数: {len(processed_segments)}")
@@ -543,6 +547,7 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
     
     for subtitle in subtitles:
         subtitle_text = subtitle['text'].strip()
+        subtitle_number = subtitle['number']  # 获取字幕行号
         if not subtitle_text:  # 跳过空字幕
             continue
             
@@ -636,7 +641,7 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
                     # 只有当提取的部分覆盖了字幕的大部分内容时才使用
                     extracted_clean = clean_text_for_comparison(extracted_segment)
                     if longest_common_subsequence(clean_subtitle, extracted_clean) >= len(clean_subtitle) * 0.7:
-                        best_match_segment = extracted_segment
+                        best_match_segment = extracted_segment.strip()
                         # 重新计算相似度
                         clean_segment = clean_text_for_comparison(best_match_segment)
                         lcs_score = longest_common_subsequence(clean_subtitle, clean_segment)
@@ -646,23 +651,49 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
                 
                 # 找出前一句和后一句
                 prev_sentence, next_sentence = find_context_sentences(original_text, best_match_segment, best_match_sentence)
+                if prev_sentence != "null":
+                    prev_sentence = prev_sentence.strip()
+                if next_sentence != "null":
+                    next_sentence = next_sentence.strip()
                 
-                sentence_mappings.append((subtitle_text, best_match_segment, char_diff, similarity, best_match_sentence, prev_sentence, next_sentence))
+                # 将原文长句分割为短句集合
+                sentence_segments = []
+                # 使用标点符号分割
+                segments = re.split(r'([。，；：！？,.;:!?])', best_match_sentence)
+                i = 0
+                while i < len(segments):
+                    if i + 1 < len(segments) and segments[i+1] in '。，；：！？,.;:!?':
+                        segment = (segments[i] + segments[i+1]).strip()
+                        if segment:  # 只添加非空短句
+                            sentence_segments.append(segment)
+                        i += 2
+                    else:
+                        segment = segments[i].strip()
+                        if segment:  # 只添加非空短句
+                            sentence_segments.append(segment)
+                        i += 1
+                
+                # 用"|"连接所有短句
+                segments_str = "|".join(sentence_segments)
+                
+                sentence_mappings.append((subtitle_number, subtitle_text, best_match_segment.strip(), char_diff, similarity, best_match_sentence.strip(), prev_sentence, next_sentence, segments_str))
                 
                 # 保存字幕更正映射
                 subtitle_corrections[subtitle_text] = best_match_segment
     
     # 写入映射文件
     with open(output_path, 'w', encoding='utf-8') as f:
+        # 添加表头，说明各个字段的意义
+        header = "字幕行号\t字幕文本\t原文短句\t字符差异\t相似度\t原文长句\t前一句\t后一句\t短句集合\n"
+        f.write(header)
+        
         for mapping in sentence_mappings:
-            subtitle_sentence, original_segment, char_diff, similarity, original_sentence, prev_sentence, next_sentence = mapping
-            
-            # 替换制表符和换行符，避免格式混乱
-            subtitle_sentence = subtitle_sentence.replace('\t', ' ').replace('\n', ' ')
-            original_segment = original_segment.replace('\t', ' ').replace('\n', ' ')
-            original_sentence = original_sentence.replace('\t', ' ').replace('\n', ' ')
-            prev_sentence = prev_sentence.replace('\t', ' ').replace('\n', ' ')
-            next_sentence = next_sentence.replace('\t', ' ').replace('\n', ' ')
+            # 解包映射数据，确保处理所有字段包括短句集合
+            if len(mapping) > 8:
+                subtitle_number, subtitle_sentence, original_segment, char_diff, similarity, original_sentence, prev_sentence, next_sentence, segments_str = mapping
+            else:
+                subtitle_number, subtitle_sentence, original_segment, char_diff, similarity, original_sentence, prev_sentence, next_sentence = mapping
+                segments_str = ""  # 如果没有短句集合，设置为空字符串
             
             # 确保原文长句不包含多个句子（通过检查句号、感叹号、问号）
             if '。' in original_sentence or '！' in original_sentence or '？' in original_sentence:
@@ -675,7 +706,7 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
                 if sentence_end > 0:
                     original_sentence = original_sentence[:sentence_end+1]
             
-            f.write(f"{subtitle_sentence}\t{original_segment}\t{char_diff}\t{similarity:.2f}\t{original_sentence}\t{prev_sentence}\t{next_sentence}\n")
+            f.write(f"{subtitle_number}\t{subtitle_sentence}\t{original_segment}\t{char_diff}\t{similarity:.2f}\t{original_sentence}\t{prev_sentence}\t{next_sentence}\t{segments_str}\n")
     
     print(f"句子映射文件已生成：{output_path}")
     print(f"总映射条数：{len(sentence_mappings)}")
