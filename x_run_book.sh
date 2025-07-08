@@ -54,6 +54,12 @@ function content_pic_get() {
     python3 coze_content_pic_gen.py $dir "$(cat $local_title_file)"
 }
 
+function content_fix() {
+    local_content_file=$1
+    local_content_file_fix=$2
+    python remove_ending_numbers.py $local_content_file $local_content_file_fix
+}
+
 # 提交获取语音任务
 function voice_gen() {
     python remove_ending_numbers.py $content_file $content_file_fix
@@ -195,7 +201,7 @@ function content_video_pic_gen() {
     #sh image_to_video.sh $local_pic $local_voice_file $local_content_video -e kenburns
     #sh image_to_video.sh $local_pic $local_voice_file $local_content_video -e fade
     #sh image_to_video.sh $local_pic $local_voice_file $local_content_video -e move_down
-    sh image_to_video.sh $local_pic $local_voice_file $local_content_video 
+    sh image_to_video.sh $local_pic $local_voice_file $local_content_video -e null
 }
 
 #content_video_pic_gen
@@ -266,14 +272,14 @@ function content_video_gen() {
     #生成语音
     echo "我步入丛林，因为我希望生活得有意义……以免在临终时，发现自己从来没有活过。" > $content_file
     #cover_voice_gen "$(cat $content_file)" $dir
+    #原文纠错
+    #content_fix $content_file $content_file_fix
     #生成视频
-    content_video_pic_gen $content_pic $content_voice_file $content_video
+    #content_video_pic_gen $content_pic $content_voice_file $content_video
     #生成字幕
     #srt_gen $content_voice_file $content_srt 
-    #原文纠错
-
     #字幕纠错
-    #srt_fix  $content_srt $content_file_fix $content_correct_srt
+    srt_fix  $content_srt $content_file_fix $content_correct_srt
     #exit
     #字幕转ass
     #srt_ass_gen $content_correct_srt $content_correct_ass
