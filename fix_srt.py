@@ -368,8 +368,8 @@ def find_context_sentences(original_text, segment, original_sentence):
     if not original_sentence or original_sentence == segment:
         return "null", "null"
     
-    # 使用各种符号作为分隔符，包括引号
-    delimiters = '，；：、,.;:！？。!?."\'""'
+    # 使用各种符号作为分隔符，包括引号和破折号
+    delimiters = '，；：、,.;:！？。!?."\'""''「」『』【】《》〈〉—–-…～'
     
     # 1. 首先确定短句在长句中的位置
     start_pos = original_sentence.find(segment)
@@ -513,13 +513,15 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
     subtitles = parse_srt(srt_path)
     
     # 先分割原文为长句
-    # 使用常见的中文和英文句子结束符号
-    original_sentences = re.split(r'([。！？!?])', original_text)
+    # 使用常见的中文和英文句子结束符号，包括引号和破折号
+    sentence_delimiters = '[。！？!?"\'""''」』】》〉]'
+    original_sentences = re.split(f'({sentence_delimiters})', original_text)
+    
     # 重新组合句子和标点
     processed_sentences = []
     i = 0
     while i < len(original_sentences):
-        if i + 1 < len(original_sentences) and original_sentences[i+1] in '。！？!?':
+        if i + 1 < len(original_sentences) and re.match(sentence_delimiters, original_sentences[i+1]):
             processed_sentences.append((original_sentences[i] + original_sentences[i+1]).strip())
             i += 2
         else:
@@ -528,13 +530,15 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
             i += 1
     
     # 分割原文为短句
-    # 使用更多的分隔符号，包括逗号、分号、顿号等
-    original_segments = re.split(r'([。，；：！？、,.;:!?])', original_text)
+    # 使用更多的分隔符号，包括逗号、分号、顿号、引号和破折号等
+    segment_delimiters = '[。，；：！？、,.;:!?"\'""''「」『』【】《》〈〉—–-…～]'
+    original_segments = re.split(f'({segment_delimiters})', original_text)
+    
     # 重新组合句子和标点
     processed_segments = []
     i = 0
     while i < len(original_segments):
-        if i + 1 < len(original_segments) and original_segments[i+1] in '。，；：！？、,.;:!?':
+        if i + 1 < len(original_segments) and re.match(segment_delimiters, original_segments[i+1]):
             processed_segments.append((original_segments[i] + original_segments[i+1]).strip())
             i += 2
         else:
