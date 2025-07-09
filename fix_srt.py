@@ -250,6 +250,71 @@ def print_large_char_diff_mappings(mappings, threshold=1):
     if not found:
         print("未发现字符差值绝对值大于阈值的映射。")
 
+def find_best_multi_segment_combination(processed_segments, best_match_segment, subtitle_text, max_segments=3):
+    """查找最佳的多短句组合，支持向前向后扩展多个短句"""
+    if not best_match_segment or best_match_segment not in processed_segments:
+        return best_match_segment, 0.0
+    
+    current_index = processed_segments.index(best_match_segment)
+    clean_subtitle = clean_text_for_comparison(subtitle_text)
+    
+    # 计算原始短句的相似度作为基准
+    clean_original = clean_text_for_comparison(best_match_segment)
+    original_similarity = difflib.SequenceMatcher(None, clean_subtitle, clean_original).ratio()
+    
+    best_combination = best_match_segment
+    best_similarity = original_similarity
+    
+    # 尝试不同的组合策略
+    combinations_to_try = []
+    
+    # 1. 向前扩展（1-3个短句）
+    for i in range(1, min(max_segments + 1, current_index + 1)):
+        start_idx = current_index - i
+        combined_segments = processed_segments[start_idx:current_index + 1]
+        combined_text = ''.join(combined_segments)
+        combinations_to_try.append(combined_text)
+    
+    # 2. 向后扩展（1-3个短句）
+    for i in range(1, min(max_segments + 1, len(processed_segments) - current_index)):
+        end_idx = current_index + i + 1
+        combined_segments = processed_segments[current_index:end_idx]
+        combined_text = ''.join(combined_segments)
+        combinations_to_try.append(combined_text)
+    
+    # 3. 向前向后同时扩展
+    for front in range(1, min(max_segments, current_index + 1)):
+        for back in range(1, min(max_segments, len(processed_segments) - current_index)):
+            if front + back <= max_segments:
+                start_idx = current_index - front
+                end_idx = current_index + back + 1
+                combined_segments = processed_segments[start_idx:end_idx]
+                combined_text = ''.join(combined_segments)
+                combinations_to_try.append(combined_text)
+    
+    # 4. 特殊处理：寻找包含关键词的组合
+    for i in range(max(0, current_index - max_segments), min(len(processed_segments), current_index + max_segments + 1)):
+        for j in range(i + 1, min(len(processed_segments) + 1, i + max_segments + 1)):
+            if i <= current_index < j:  # 确保包含原始匹配段
+                combined_segments = processed_segments[i:j]
+                combined_text = ''.join(combined_segments)
+                combinations_to_try.append(combined_text)
+    
+    # 评估所有组合
+    for combined_text in set(combinations_to_try):  # 去重
+        if combined_text == best_match_segment:
+            continue
+        
+        clean_combined = clean_text_for_comparison(combined_text)
+        similarity = difflib.SequenceMatcher(None, clean_subtitle, clean_combined).ratio()
+        
+        # 如果相似度提高，就使用这个组合
+        if similarity > best_similarity:
+            best_similarity = similarity
+            best_combination = combined_text
+    
+    return best_combination, best_similarity
+
 def generate_sentence_mapping(original_text_path, srt_path, output_path, corrected_srt_path=None):
     """生成字幕文件语句和原文语句的映射文件，并可选择同时更正字幕"""
     with open(original_text_path, 'r', encoding='utf-8') as f:
@@ -258,7 +323,7 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
     subtitles = parse_srt(srt_path)
     
     # 分割原文为长句和短句
-    sentence_delimiters = '[。！？!?"\'""''」』】》〉]'
+    sentence_delimiters = '[。！？!?]'  # 只使用句子终结符
     segment_delimiters = '[。，；：！？、,.;:!?"\'""''「」『』【】《》〈〉—–-…～]'
     
     original_sentences = re.split(f'({sentence_delimiters})', original_text)
@@ -343,6 +408,13 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
                                    key=lambda x: abs(len(clean_text_for_comparison(x)) - len(clean_subtitle)) 
                                    if len(clean_text_for_comparison(x)) > 0 else float('inf'))
         
+        # 尝试多短句组合以提高匹配度
+        improved_segment, improved_similarity = find_best_multi_segment_combination(
+            processed_segments, best_match_segment, subtitle_text)
+        
+        if improved_similarity > 0:
+            best_match_segment = improved_segment
+        
         # 找到对应的原文长句
         original_sentence = segment_to_sentence.get(best_match_segment)
         if not original_sentence:
@@ -350,6 +422,22 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
                 if clean_text_for_comparison(best_match_segment) in clean_text_for_comparison(sentence):
                     original_sentence = sentence
                     break
+        
+        # 如果多短句组合后找不到对应长句，使用包含最多字符的长句
+        if not original_sentence:
+            clean_best_match = clean_text_for_comparison(best_match_segment)
+            best_sentence_match = None
+            best_overlap = 0
+            
+            for sentence in processed_sentences:
+                clean_sentence = clean_text_for_comparison(sentence)
+                overlap = len(set(clean_best_match) & set(clean_sentence))
+                if overlap > best_overlap:
+                    best_overlap = overlap
+                    best_sentence_match = sentence
+            
+            if best_sentence_match:
+                original_sentence = best_sentence_match
         
         if original_sentence:
             prev_sentence, next_sentence = find_context_sentences(original_text, best_match_segment, original_sentence)
