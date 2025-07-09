@@ -50,25 +50,95 @@ def parse_srt(srt_path):
     
     return subtitles
 
-def find_best_match(subtitle_text, original_segments, segment_to_sentence):
+def get_combined_segments(segments, position, max_combine=3):
+    """获取不同组合的前后句拼接结果"""
+    combinations = []
+    n = len(segments)
+    idx = position - 1  # 转换为0基索引
+    
+    # 获取基准文本
+    base_text = segments[idx]
+    combinations.append(('base', base_text))
+    
+    # 向前拼接1-3句
+    for i in range(1, max_combine + 1):
+        start = max(0, idx - i)
+        combined = ''.join(segments[start:idx + 1])
+        combinations.append((f'prev_{i}', combined))
+    
+    # 向后拼接1-3句
+    for i in range(1, max_combine + 1):
+        end = min(n, idx + 1 + i)
+        combined = ''.join(segments[idx:end])
+        combinations.append((f'next_{i}', combined))
+    
+    # 前后同时拼接
+    for i in range(1, max_combine + 1):
+        for j in range(1, max_combine + 1):
+            start = max(0, idx - i)
+            end = min(n, idx + 1 + j)
+            combined = ''.join(segments[start:end])
+            combinations.append((f'both_{i}_{j}', combined))
+    
+    return combinations
+
+def find_best_match(subtitle_text, segment_info):
     """找到最佳匹配的原文片段"""
     clean_subtitle = clean_text_for_comparison(subtitle_text)
     best_match = None
     best_similarity = -1
     best_sentence = None
+    best_position = None
+    best_segments = None
+    best_combine_type = 'base'
     
-    for segment, sentence in segment_to_sentence.items():
+    for segment, info in segment_info.items():
         clean_segment = clean_text_for_comparison(segment)
         if not clean_segment:
             continue
         
+        # 计算基本相似度
         similarity = difflib.SequenceMatcher(None, clean_subtitle, clean_segment).ratio()
+        
         if similarity > best_similarity:
             best_similarity = similarity
             best_match = segment
-            best_sentence = sentence
+            best_sentence = info['sentence']
+            best_position = info['position']
+            best_segments = info['all_segments']
+            
+            # 尝试不同的拼接组合
+            segments_list = info['all_segments'].split('|')
+            combinations = get_combined_segments(segments_list, info['position'])
+            
+            for combine_type, combined_text in combinations:
+                clean_combined = clean_text_for_comparison(combined_text)
+                combined_similarity = difflib.SequenceMatcher(None, clean_subtitle, clean_combined).ratio()
+                
+                # 如果拼接后的相似度更高（设置一个小的阈值避免微小的改进）
+                if combined_similarity > best_similarity + 0.05:
+                    best_similarity = combined_similarity
+                    best_match = combined_text
+                    best_combine_type = combine_type
     
-    return best_match, best_similarity, best_sentence
+    return best_match, best_similarity, best_sentence, best_position, best_segments, best_combine_type
+
+def split_sentence_to_segments(sentence, segment_delimiters):
+    """将长句分割为短句列表"""
+    segments = re.split(f'({segment_delimiters})', sentence)
+    processed_segments = []
+    i = 0
+    while i < len(segments):
+        if i + 1 < len(segments) and re.match(segment_delimiters, segments[i+1]):
+            segment = (segments[i] + segments[i+1]).strip()
+            if segment:
+                processed_segments.append(segment)
+            i += 2
+        else:
+            if segments[i].strip():
+                processed_segments.append(segments[i].strip())
+            i += 1
+    return processed_segments
 
 def generate_sentence_mapping(original_text_path, srt_path, output_path, corrected_srt_path=None):
     """生成字幕文件语句和原文语句的映射文件，并可选择同时更正字幕"""
@@ -93,21 +163,16 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
     
     # 然后分割每个长句为短句，并保持短句到长句的映射关系
     segment_delimiters = '[。，；：！？、,.;:!?"\'""''「」『』【】《》〈〉—–-…～]'
-    segment_to_sentence = {}
+    segment_info = {}
     
     for sentence in processed_sentences:
-        segments = re.split(f'({segment_delimiters})', sentence)
-        i = 0
-        while i < len(segments):
-            if i + 1 < len(segments) and re.match(segment_delimiters, segments[i+1]):
-                segment = (segments[i] + segments[i+1]).strip()
-                if segment:
-                    segment_to_sentence[segment] = sentence
-                i += 2
-            else:
-                if segments[i].strip():
-                    segment_to_sentence[segments[i].strip()] = sentence
-                i += 1
+        segments = split_sentence_to_segments(sentence, segment_delimiters)
+        for idx, segment in enumerate(segments, 1):
+            segment_info[segment] = {
+                'sentence': sentence,
+                'position': idx,
+                'all_segments': '|'.join(segments)
+            }
     
     # 处理每个字幕条目
     corrected_subtitles = []
@@ -118,14 +183,17 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
         if not subtitle_text:
             continue
         
-        best_match, similarity, original_sentence = find_best_match(subtitle_text, segment_to_sentence.keys(), segment_to_sentence)
+        best_match, similarity, original_sentence, position, segments, combine_type = find_best_match(subtitle_text, segment_info)
         
         mappings.append({
             'subtitle_number': subtitle['number'],
             'subtitle_text': subtitle_text,
             'corrected_text': best_match,
             'original_sentence': original_sentence,
-            'similarity': similarity
+            'position': position,
+            'segments': segments,
+            'similarity': similarity,
+            'combine_type': combine_type
         })
         
         corrected_subtitles.append({
@@ -136,10 +204,12 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
     
     # 写入映射文件
     with open(output_path, 'w', encoding='utf-8') as f:
-        f.write("字幕行号\t字幕\t修正文本\t原文长句\t相似度\n")
+        f.write("字幕行号\t字幕\t修正文本\t原文长句\t短句位置\t长句分割\t拼接类型\t相似度\n")
         for mapping in mappings:
             f.write(f"{mapping['subtitle_number']}\t{mapping['subtitle_text']}\t"
                    f"{mapping['corrected_text']}\t{mapping['original_sentence']}\t"
+                   f"{mapping['position']}\t{mapping['segments']}\t"
+                   f"{mapping['combine_type']}\t"
                    f"{mapping['similarity']:.2f}\n")
     
     print(f"映射文件已生成：{output_path}")
