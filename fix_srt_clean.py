@@ -204,13 +204,12 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
     
     # 写入映射文件
     with open(output_path, 'w', encoding='utf-8') as f:
-        f.write("字幕行号\t字幕\t修正文本\t原文长句\t短句位置\t长句分割\t拼接类型\t相似度\n")
+        f.write("字幕行号\t字幕\t修正文本\t相似度\t原文长句\t短句位置\t长句分割\t拼接类型\n")
         for mapping in mappings:
             f.write(f"{mapping['subtitle_number']}\t{mapping['subtitle_text']}\t"
-                   f"{mapping['corrected_text']}\t{mapping['original_sentence']}\t"
-                   f"{mapping['position']}\t{mapping['segments']}\t"
-                   f"{mapping['combine_type']}\t"
-                   f"{mapping['similarity']:.2f}\n")
+                   f"{mapping['corrected_text']}\t{mapping['similarity']:.3f}\t"
+                   f"{mapping['original_sentence']}\t{mapping['position']}\t"
+                   f"{mapping['segments']}\t{mapping['combine_type']}\n")
     
     print(f"映射文件已生成：{output_path}")
     
