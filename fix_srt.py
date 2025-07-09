@@ -485,20 +485,25 @@ def print_large_char_diff_mappings(mappings, threshold=1):
             print(f"前一句: {mapping['prev_sentence']}")
             print(f"后一句: {mapping['next_sentence']}")
             print(f"前一句+原文短句: {mapping['combined_prev_segment']}")
+            print(f"原文短句+后一句: {mapping['combined_next_segment']}")
             
-            # 计算并显示组合文本相似度
-            combined_text = mapping['combined_prev_segment']
-            subtitle_text = mapping['subtitle_text']
-            if combined_text != "null" and subtitle_text:
-                clean_combined = clean_text_for_comparison(combined_text)
-                clean_subtitle = clean_text_for_comparison(subtitle_text)
-                combined_similarity = difflib.SequenceMatcher(None, clean_combined, clean_subtitle).ratio()
-                print(f"前一句+原文短句与字幕的相似度: {combined_similarity:.2f}")
-                # 显示使用了哪个版本的文本
-                if combined_similarity > mapping['similarity'] + 0.1:
-                    print("✓ 使用组合文本进行更正（相似度更高）")
-                else:
-                    print("✓ 使用原文短句进行更正")
+            # 直接使用存储的相似度值
+            print(f"前一句+原文短句与字幕的相似度: {mapping['combined_similarity']:.2f}")
+            print(f"原文短句+后一句与字幕的相似度: {mapping['combined_next_similarity']:.2f}")
+            
+            # 显示最终选择的版本
+            original_sim = mapping['similarity']
+            prev_sim = mapping['combined_similarity']
+            next_sim = mapping['combined_next_similarity']
+            
+            best_sim = max(original_sim, prev_sim, next_sim)
+            
+            if best_sim == next_sim and next_sim > original_sim + 0.05:
+                print("✓ 使用原文短句+后一句进行更正（相似度最高）")
+            elif best_sim == prev_sim and prev_sim > original_sim + 0.05:
+                print("✓ 使用前一句+原文短句进行更正（相似度最高）")
+            else:
+                print("✓ 使用原文短句进行更正")
     
     if not found:
         print("未发现字符差值绝对值大于阈值的映射。")
@@ -722,12 +727,31 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
                 else:
                     mapping_info['combined_similarity'] = 0.0
                 
+                # 计算原文短句+后一句的相似度
+                combined_next_text = best_match_segment + next_sentence if next_sentence != "null" else best_match_segment
+                mapping_info['combined_next_segment'] = combined_next_text
+                if combined_next_text != "null" and subtitle_text:
+                    clean_combined_next = clean_text_for_comparison(combined_next_text)
+                    clean_subtitle = clean_text_for_comparison(subtitle_text)
+                    combined_next_similarity = difflib.SequenceMatcher(None, clean_combined_next, clean_subtitle).ratio()
+                    mapping_info['combined_next_similarity'] = combined_next_similarity
+                else:
+                    mapping_info['combined_next_similarity'] = 0.0
+                
                 sentence_mappings.append(mapping_info)
                 
                 # 如果需要更正字幕，存储映射关系
                 if corrected_srt_path:
-                    # 如果组合文本的相似度更高，使用组合文本
-                    if mapping_info['combined_similarity'] > mapping_info['similarity'] + 0.1:  # 相似度提高超过0.1才使用组合文本
+                    # 选择相似度最高的版本
+                    original_sim = mapping_info['similarity']
+                    prev_sim = mapping_info['combined_similarity']
+                    next_sim = mapping_info['combined_next_similarity']
+                    
+                    best_sim = max(original_sim, prev_sim, next_sim)
+                    
+                    if best_sim == next_sim and next_sim > original_sim + 0.05:
+                        subtitle_corrections[subtitle_number] = mapping_info['combined_next_segment']
+                    elif best_sim == prev_sim and prev_sim > original_sim + 0.05:
                         subtitle_corrections[subtitle_number] = mapping_info['combined_prev_segment']
                     else:
                         subtitle_corrections[subtitle_number] = best_match_segment
@@ -773,13 +797,20 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
             subtitle_number = mapping['subtitle_number']
             subtitle_text = mapping['subtitle_text']
             original_similarity = mapping['similarity']
-            combined_similarity = mapping.get('combined_similarity', 0.0)
+            prev_similarity = mapping.get('combined_similarity', 0.0)
+            next_similarity = mapping.get('combined_next_similarity', 0.0)
             
             # 确定使用的文本和类型
-            if combined_similarity > original_similarity + 0.1:
+            best_sim = max(original_similarity, prev_similarity, next_similarity)
+            
+            if best_sim == next_similarity and next_similarity > original_similarity + 0.05:
+                corrected_text = mapping['combined_next_segment']
+                use_type = "原文短句+后一句"
+                final_similarity = next_similarity
+            elif best_sim == prev_similarity and prev_similarity > original_similarity + 0.05:
                 corrected_text = mapping['combined_prev_segment']
-                use_type = "组合文本"
-                final_similarity = combined_similarity
+                use_type = "前一句+原文短句"
+                final_similarity = prev_similarity
             else:
                 corrected_text = mapping['original_segment']
                 use_type = "原文短句"
