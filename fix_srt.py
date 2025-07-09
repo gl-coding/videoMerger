@@ -446,6 +446,29 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
             char_diff = len(clean_subtitle) - len(clean_best_match)
             similarity = difflib.SequenceMatcher(None, clean_subtitle, clean_best_match).ratio()
             
+            # 获取原文长句中的短句集合
+            sentence_segments = []
+            current_segment = ""
+            delimiters = '，；：、,.;:！？。!?."\'""''「」『』【】《》〈〉—–-…～'
+            
+            i = 0
+            while i < len(original_sentence):
+                char = original_sentence[i]
+                current_segment += char
+                
+                # 检查下一个字符是否是分隔符
+                if i + 1 < len(original_sentence) and original_sentence[i + 1] in delimiters:
+                    current_segment += original_sentence[i + 1]  # 添加分隔符
+                    sentence_segments.append(current_segment.strip())
+                    current_segment = ""
+                    i += 2  # 跳过当前字符和分隔符
+                else:
+                    i += 1
+            
+            # 添加最后一段（如果有的话）
+            if current_segment.strip():
+                sentence_segments.append(current_segment.strip())
+            
             # 构建映射信息
             mapping_info = {
                 'subtitle_number': subtitle_number,
@@ -456,6 +479,7 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
                 'original_sentence': original_sentence,
                 'prev_sentence': prev_sentence,
                 'next_sentence': next_sentence,
+                'sentence_segments': '|'.join(sentence_segments),  # 用|分割的短句集合
                 'combined_prev_segment': prev_sentence + best_match_segment if prev_sentence != "null" else best_match_segment,
                 'combined_next_segment': best_match_segment + next_sentence if next_sentence != "null" else best_match_segment
             }
@@ -490,12 +514,12 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
     
     # 写入映射文件
     with open(output_path, 'w', encoding='utf-8') as f:
-        f.write("字幕行号\t字幕\t原文短句\t字符差值\t相似度\t原文长句\t前一句\t后一句\t前一句+原文短句\t原文短句+后一句\n")
+        f.write("字幕行号\t字幕\t原文短句\t字符差值\t相似度\t原文长句\t前一句\t后一句\t短句集合\t前一句+原文短句\t原文短句+后一句\n")
         for mapping in sentence_mappings:
             f.write(f"{mapping['subtitle_number']}\t{mapping['subtitle_text']}\t{mapping['original_segment']}\t"
                    f"{mapping['char_diff']}\t{mapping['similarity']:.2f}\t{mapping['original_sentence']}\t"
-                   f"{mapping['prev_sentence']}\t{mapping['next_sentence']}\t{mapping['combined_prev_segment']}\t"
-                   f"{mapping['combined_next_segment']}\n")
+                   f"{mapping['prev_sentence']}\t{mapping['next_sentence']}\t{mapping['sentence_segments']}\t"
+                   f"{mapping['combined_prev_segment']}\t{mapping['combined_next_segment']}\n")
     
     print(f"映射文件已生成：{output_path}")
     
