@@ -19,6 +19,12 @@ def clean_text_for_comparison(text):
     cleaned = re.sub(r'\s+', '', cleaned)
     return cleaned
 
+def get_char_count_diff(text1, text2):
+    """计算两个文本的字符数差值（排除标点符号）"""
+    clean_text1 = clean_text_for_comparison(text1)
+    clean_text2 = clean_text_for_comparison(text2)
+    return len(clean_text2) - len(clean_text1)
+
 def parse_srt(srt_path):
     """解析SRT文件"""
     with open(srt_path, 'r', encoding='utf-8') as f:
@@ -91,6 +97,7 @@ def find_best_match(subtitle_text, segment_info):
     best_position = None
     best_segments = None
     best_combine_type = 'base'
+    best_char_diff = 0
     
     for segment, info in segment_info.items():
         clean_segment = clean_text_for_comparison(segment)
@@ -106,6 +113,7 @@ def find_best_match(subtitle_text, segment_info):
             best_sentence = info['sentence']
             best_position = info['position']
             best_segments = info['all_segments']
+            best_char_diff = get_char_count_diff(subtitle_text, segment)
             
             # 尝试不同的拼接组合
             segments_list = info['all_segments'].split('|')
@@ -120,8 +128,9 @@ def find_best_match(subtitle_text, segment_info):
                     best_similarity = combined_similarity
                     best_match = combined_text
                     best_combine_type = combine_type
+                    best_char_diff = get_char_count_diff(subtitle_text, combined_text)
     
-    return best_match, best_similarity, best_sentence, best_position, best_segments, best_combine_type
+    return best_match, best_similarity, best_sentence, best_position, best_segments, best_combine_type, best_char_diff
 
 def split_sentence_to_segments(sentence, segment_delimiters):
     """将长句分割为短句列表"""
@@ -183,16 +192,17 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
         if not subtitle_text:
             continue
         
-        best_match, similarity, original_sentence, position, segments, combine_type = find_best_match(subtitle_text, segment_info)
+        best_match, similarity, original_sentence, position, segments, combine_type, char_diff = find_best_match(subtitle_text, segment_info)
         
         mappings.append({
             'subtitle_number': subtitle['number'],
             'subtitle_text': subtitle_text,
             'corrected_text': best_match,
+            'similarity': similarity,
+            'char_diff': char_diff,
             'original_sentence': original_sentence,
             'position': position,
             'segments': segments,
-            'similarity': similarity,
             'combine_type': combine_type
         })
         
@@ -202,16 +212,28 @@ def generate_sentence_mapping(original_text_path, srt_path, output_path, correct
             'text': best_match if best_match else subtitle_text
         })
     
-    # 写入映射文件
+    # 写入详细映射文件
     with open(output_path, 'w', encoding='utf-8') as f:
-        f.write("字幕行号\t字幕\t修正文本\t相似度\t原文长句\t短句位置\t长句分割\t拼接类型\n")
+        f.write("字幕行号\t字幕\t修正文本\t相似度\t字数差值\t原文长句\t短句位置\t长句分割\t拼接类型\n")
         for mapping in mappings:
             f.write(f"{mapping['subtitle_number']}\t{mapping['subtitle_text']}\t"
                    f"{mapping['corrected_text']}\t{mapping['similarity']:.3f}\t"
-                   f"{mapping['original_sentence']}\t{mapping['position']}\t"
-                   f"{mapping['segments']}\t{mapping['combine_type']}\n")
+                   f"{mapping['char_diff']}\t{mapping['original_sentence']}\t"
+                   f"{mapping['position']}\t{mapping['segments']}\t"
+                   f"{mapping['combine_type']}\n")
     
-    print(f"映射文件已生成：{output_path}")
+    print(f"详细映射文件已生成：{output_path}")
+    
+    # 写入简化版映射文件
+    simple_mapping_path = os.path.join(os.path.dirname(output_path), 
+                                     os.path.splitext(os.path.basename(output_path))[0] + "_simple.txt")
+    with open(simple_mapping_path, 'w', encoding='utf-8') as f:
+        f.write("字幕行号\t字幕\t修正文本\n")
+        for mapping in mappings:
+            f.write(f"{mapping['subtitle_number']}\t{mapping['subtitle_text']}\t"
+                   f"{mapping['corrected_text']}\n")
+    
+    print(f"简化版映射文件已生成：{simple_mapping_path}")
     
     # 生成更正后的字幕文件
     if corrected_srt_path:
