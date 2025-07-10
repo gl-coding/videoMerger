@@ -115,6 +115,7 @@ function cover_srt_gen() {
     echo "cover_srt_gen $dir $text $bg_color $font_color $pos"
     cover_pic_dir=$dir
     cover_pic=$cover_pic_dir/cover_pic.jpg
+    cover_text=$cover_pic_dir/cover_text.txt
     cover_pic_text=$cover_pic_dir/cover_pic_text.jpg
     cover_pic_first=$cover_pic_dir/cover_pic_first.jpg
     cover_pic_text_first=$cover_pic_dir/cover_pic_text_first.jpg
@@ -122,12 +123,12 @@ function cover_srt_gen() {
     cover_video_ass=$cover_pic_dir/cover_video_ass.mp4
     cover_voice_file=$cover_pic_dir/result.wav
     cover_voice_srt=$cover_pic_dir/cover_voice_srt.srt
+    cover_voice_srt_correct=$cover_pic_dir/cover_voice_srt_corrected.srt
     cover_voice_srt_ass=$cover_pic_dir/cover_voice_srt_ass.ass
     cover_video_wav=$cover_pic_dir/cover_video_wav.mp3
 
     mkdir -p $cover_pic_dir
 
-    #cp cover/cover_pic_text_first.jpg $cover_pic_text_first
     #生成语音
     cover_voice_gen $text $cover_pic_dir
     #生成字幕
@@ -152,6 +153,8 @@ function cover_srt_gen() {
     fi
     #字幕校验
     #todo
+    echo $text > $cover_text
+    srt_fix $cover_voice_srt $cover_text #$cover_voice_srt_ass
     #生成ass文件
     if [ $pos == "center" ]; then
         align=5
@@ -162,7 +165,7 @@ function cover_srt_gen() {
     fi
     rm -f $cover_voice_srt_ass
     #python3 srt2ass_with_effect.py $cover_voice_srt $cover_voice_srt_ass --align 2 --font "鸿雷板书简体-正式版" --size 120 --color white  
-    python3 srt2ass_with_effect.py $cover_voice_srt $cover_voice_srt_ass --align $align \
+    python3 srt2ass_with_effect.py $cover_voice_srt_correct $cover_voice_srt_ass --align $align \
         --font "鸿雷板书简体-正式版" --size 120 --color $font_color --effect typewriter 
     #mp4合并ass
     rm -f $cover_video_ass
@@ -176,8 +179,6 @@ function cover_video_gen_all() {
     cover_srt_gen "ccc" "余华老师的《活着》" black red center
     # cover_srt_gen "bbb" "余华老师的《活着》"
 }
-
-
 
 function content_video_pic_gen() {
     local_pic=$1
@@ -206,13 +207,13 @@ function srt_fix() {
     #字幕纠错
     local_srt=$1
     local_content=$2
-    local_correct_srt=$3
+    #local_correct_srt=$3
     if [ ! -f $local_srt ]; then
         echo "字幕文件不存在，exit"
         exit 1
     fi
-    rm -f $local_correct_srt
-    python fix_srt.py $local_srt $local_content -o $local_correct_srt
+    #rm -f $local_correct_srt
+    python fix_srt.py $local_srt $local_content # -o $local_correct_srt
 }
 
 function srt_ass_gen() {
@@ -291,12 +292,12 @@ function merge_cover_video_all() {
 
 function content_video_gen_all() {
     #封面视频
-    #cover_srt_gen 000 "今天我们分享的是" cover/cover_pic_text_first.jpg white "bottom"
+    #cover_srt_gen 000 "今天我们分享的是" cover/cover_pic_text_first.jpg white bottom
     #封面视频
-    #cover_srt_gen 001 "余华老师的《活着》" black red center
+    cover_srt_gen 001 "余华老师的《活着》" black white bottom
     #内容页视频
-    #content_video_gen ccc
-    merge_cover_video_all  1
+    #content_video_gen 002
+    #merge_cover_video_all  2
 }
 
 # 整体添加水印
