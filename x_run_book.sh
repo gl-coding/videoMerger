@@ -109,9 +109,11 @@ function download_wavs() {
 function cover_srt_gen() {
     dir=$1
     text=$2
-    bg_color=$3
-    font_color=$4
-    pos=$5
+    title=$3
+    bg_color=$4
+    font_color=$5
+    pos=$6
+
     echo "cover_srt_gen $dir $text $bg_color $font_color $pos"
     cover_pic_dir=$dir
     cover_pic=$cover_pic_dir/cover_pic.jpg
@@ -121,6 +123,7 @@ function cover_srt_gen() {
     cover_pic_text_first=$cover_pic_dir/cover_pic_text_first.jpg
     cover_pic_video=$cover_pic_dir/cover_pic_video.mp4
     cover_video_ass=$cover_pic_dir/cover_video_ass.mp4
+    cover_video_bg_srt=$cover_pic_dir/cover_video_bg_srt.mp4
     cover_voice_file=$cover_pic_dir/result.wav
     cover_voice_srt=$cover_pic_dir/cover_voice_srt.srt
     cover_voice_srt_correct=$cover_pic_dir/cover_voice_srt_corrected.srt
@@ -151,8 +154,8 @@ function cover_srt_gen() {
         rm -f $cover_pic_video
         sh image_to_video.sh --color-only -b black $cover_voice_file $cover_pic_video
     fi
+
     #字幕校验
-    #todo
     echo $text > $cover_text
     srt_fix $cover_voice_srt $cover_text #$cover_voice_srt_ass
     #生成ass文件
@@ -170,14 +173,11 @@ function cover_srt_gen() {
     #mp4合并ass
     rm -f $cover_video_ass
     ffmpeg -i $cover_pic_video -vf "ass=$cover_voice_srt_ass:fontsdir=./font" -c:a copy $cover_video_ass
-}
 
-function cover_video_gen_all() {
-    # 生成短视频
-    #cover_srt_gen "aaa" "今天我们分享的是" "null"
-    cover_srt_gen "aaa" "今天我们分享的是" cover/cover_pic_text_first.jpg white "bottom"
-    cover_srt_gen "ccc" "余华老师的《活着》" black red center
-    # cover_srt_gen "bbb" "余华老师的《活着》"
+    #是否在最终的视频上添加大字背景
+    if [ $title != "null" ]; then
+        video_bg_srt_gen $cover_video_ass $title $cover_video_bg_srt
+    fi
 }
 
 function content_video_pic_gen() {
@@ -224,8 +224,11 @@ function srt_ass_gen() {
 
 # 添加背景文字（可选）
 function video_bg_srt_gen() {
-    rm -f $content_video_bg_srt
-    ffmpeg -i $content_video_pic -vf "drawtext=text='《$(cat $title_file)》':fontfile=./font/Aa剑豪体.ttf:fontsize=160:fontcolor=red@0.8:x=(W-tw)/2:y=100:" $content_video_bg_srt
+    local_video=$1
+    local_title=$2
+    local_video_bg_srt=$3
+    rm -f $local_video_bg_srt
+    ffmpeg -i $local_video -vf "drawtext=text='$local_title':fontfile=./font/Aa剑豪体.ttf:fontsize=160:fontcolor=red@0.8:x=(W-tw)/2:y=100:" $local_video_bg_srt
 }
 
 # 用新字体生成mp4字幕文件
@@ -292,9 +295,9 @@ function merge_cover_video_all() {
 
 function content_video_gen_all() {
     #封面视频
-    #cover_srt_gen 000 "今天我们分享的是" cover/cover_pic_text_first.jpg white bottom
+    cover_srt_gen 000 "今天我们分享的是" null cover/cover_pic_text_first.jpg white center
     #封面视频
-    cover_srt_gen 001 "余华老师的《活着》" black white bottom
+    cover_srt_gen 001 "余华老师的《活着》" "《活着》" black white bottom
     #内容页视频
     #content_video_gen 002
     #merge_cover_video_all  2
