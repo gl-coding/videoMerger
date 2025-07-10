@@ -177,21 +177,7 @@ function cover_video_gen_all() {
     # cover_srt_gen "bbb" "余华老师的《活着》"
 }
 
-function merge_cover_video_all() {
-    # 合并封面视频
-    for dir in aaa ccc; do
-        echo "file '$dir/cover_video_ass.mp4'" >> cover_list.txt
-    done
-    
-    # 合并视频
-    rm -f merged_cover.mp4
-    ffmpeg -f concat -safe 0 -i cover_list.txt -c copy merged_cover.mp4
-    
-    echo "封面视频合并完成: cover/merged_cover.mp4"
-    
-    # 删除临时文件
-    rm cover_list.txt
-}
+
 
 function content_video_pic_gen() {
     local_pic=$1
@@ -268,28 +254,49 @@ function content_video_gen() {
 
     #生成内容图
     echo "活着" > $pic_content_file
-    #content_pic_get $dir $pic_content_file
+    content_pic_get $dir $pic_content_file
     #生成语音
     echo "我步入丛林，因为我希望生活得有意义……以免在临终时，发现自己从来没有活过。" > $content_file
-    #cover_voice_gen "$(cat $content_file)" $dir
+    cover_voice_gen "$(cat $content_file)" $dir
     #原文纠错
-    #content_fix $content_file $content_file_fix
+    content_fix $content_file $content_file_fix
     #生成视频
-    #content_video_pic_gen $content_pic $content_voice_file $content_video
+    content_video_pic_gen $content_pic $content_voice_file $content_video
     #生成字幕
-    #srt_gen $content_voice_file $content_srt 
+    srt_gen $content_voice_file $content_srt 
     #字幕纠错
     srt_fix  $content_srt $content_file_fix $content_correct_srt
-    #exit
     #字幕转ass
-    #srt_ass_gen $content_correct_srt $content_correct_ass
-    #exit
+    srt_ass_gen $content_correct_srt $content_correct_ass
     #生成带ass字幕的视频
-    #gen_ass_video $content_video $content_correct_ass $content_video_ass
+    gen_ass_video $content_video $content_correct_ass $content_video_ass
+}
+
+function merge_cover_video_all() {
+    max_num=$(($1+1))
+    rm -f cover_list.txt
+    for((i=0;i<$max_num;i++)); do
+        dir=00$i
+        echo "file '$dir/cover_video_ass.mp4'" >> cover_list.txt
+    done
+    # 合并视频
+    rm -f merged_cover.mp4
+    ffmpeg -f concat -safe 0 -i cover_list.txt -c copy merged_cover.mp4
+    
+    echo "封面视频合并完成: cover/merged_cover.mp4"
+    
+    # 删除临时文件
+    rm cover_list.txt
 }
 
 function content_video_gen_all() {
-    content_video_gen ddd
+    #封面视频
+    #cover_srt_gen 000 "今天我们分享的是" cover/cover_pic_text_first.jpg white "bottom"
+    #封面视频
+    #cover_srt_gen 001 "余华老师的《活着》" black red center
+    #内容页视频
+    #content_video_gen ccc
+    merge_cover_video_all  1
 }
 
 # 整体添加水印
