@@ -201,8 +201,6 @@ function srt_gen() {
     python srt_gen.py $local_voice $local_srt 
 }
 
-#srt_gen
-
 function srt_fix() {
     #字幕纠错
     local_srt=$1
@@ -241,6 +239,22 @@ function gen_ass_video() {
     ffmpeg -i $local_srt_video -vf "ass=$local_ass_file:fontsdir=./font" -c:a copy $local_ass_video
 }
 
+# 视频添加水印
+function video_add_watermark() {
+    local_name=$1
+    local_video=$2
+    local_video_pre_header=$local_video"_pre_watermark.mp4"
+    rm -f $local_video_pre_header
+    ffmpeg -i $local_video -vf "drawtext=text='@$local_name':fontfile=./font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white:x=10:y=10" $local_video_pre_header
+
+    if [ "" = "null" ]; then
+        local_video_post_header=$local_video"_post_watermark.mp4"
+        rm -f $local_video_post_header
+        #ffmpeg -i $local_video_pre_header -vf "drawtext=text='@版权所有':fontfile=./font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white@0.8:x=W-tw-10:y=10:shadowcolor=black:shadowx=2:shadowy=2" $local_video_post_header
+        ffmpeg -i $local_video_pre_header -vf "drawtext=text='@$local_name':fontfile=./font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white:x=W-tw-10:y=10" $local_video_post_header
+    fi 
+}
+
 function content_video_gen() {
     dir=$1
     pic_content_file=$dir/pic_content.txt
@@ -250,7 +264,7 @@ function content_video_gen() {
     content_video_ass=$dir/video_ass.mp4
     content_voice_file=$dir/result.wav
     content_srt=$dir/content.srt
-    content_correct_srt=$dir/content_correct.srt
+    content_correct_srt=$dir/content_corrected.srt
     content_correct_ass=$dir/content_correct.ass
     content_pic=$dir/pic_cover_0.jpg
 
@@ -295,22 +309,15 @@ function merge_cover_video_all() {
 
 function content_video_gen_all() {
     #封面视频
-    cover_srt_gen 000 "今天我们分享的是" null cover/cover_pic_text_first.jpg white center
+    #cover_srt_gen 000 "今天我们分享的是" null cover/cover_pic_text_first.jpg white center
     #封面视频
-    cover_srt_gen 001 "余华老师的《活着》" "《活着》" black white bottom
+    #cover_srt_gen 001 "余华老师的《活着》" "《活着》" black white bottom
     #内容页视频
-    #content_video_gen 002
+    content_video_gen 002
     #merge_cover_video_all  2
 }
 
-# 整体添加水印
-function video_bg_srt_ass_header_gen() {
-    rm -f $content_video_bg_srt_ass_header
-    ffmpeg -i $content_video_bg_srt_ass -vf "drawtext=text='@$name':fontfile=./font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white:x=10:y=10" $content_video_bg_srt_ass_header
 
-    #rm -f out2.mp4
-    #ffmpeg -i out1.mp4 -vf "drawtext=text='@版权所有':fontfile=./font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white@0.8:x=W-tw-10:y=10:shadowcolor=black:shadowx=2:shadowy=2" out2.mp4
-}
 
 #video_bg_srt_ass_header_gen
 
@@ -320,10 +327,6 @@ function video_add_bgm() {
     rm -f $content_video_bg_srt_ass_header_bgm
     sh add_bgm.sh -v 0.4 -l -f 1 -F 1 $content_video_bg_srt_ass_header $bgm_file $content_video_bg_srt_ass_header_bgm
 }
-
-#add_bgm_rotate
-#exit 0
-#video_add_bgm
 
 function clear_audio_data() {
     #清空语音数据
