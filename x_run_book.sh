@@ -73,12 +73,17 @@ function cover_voice_gen() {
     text=$1
     dir=$2
     name=$2
-    mkdir -p $dir
     wavfile=$dir/result.wav
-    rm -f $wavfile
-    echo $text > $dir/$name.txt
+    text_file=$dir/$name.txt
+
+    mkdir -p $dir
+    if [ -f $text ]; then
+        cp $text $text_file
+    else
+        echo $text > $text_file
+    fi
     #提交语音生成任务
-    python clone_voice.py -f $dir/$name.txt -o $uuid -v $voice
+    python clone_voice.py -f $text_file -o $uuid -v $voice
     #下载语音
     rm -f $wavfile
     while true; do
@@ -275,7 +280,8 @@ function content_video_gen() {
     content_pic_get $dir $pic_content_file
     #生成语音
     echo "我步入丛林，因为我希望生活得有意义……以免在临终时，发现自己从来没有活过。" > $content_file
-    cover_voice_gen "$(cat $content_file)" $dir
+    #cover_voice_gen "$(cat $content_file)" $dir
+    cover_voice_gen $content_file $dir
     #原文纠错
     content_fix $content_file $content_file_fix
     #生成视频
@@ -316,10 +322,6 @@ function content_video_gen_all() {
     content_video_gen 002
     #merge_cover_video_all  2
 }
-
-
-
-#video_bg_srt_ass_header_gen
 
 #整体添加bgm
 function video_add_bgm() {
