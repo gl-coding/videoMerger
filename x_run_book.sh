@@ -261,27 +261,34 @@ function video_add_watermark() {
 }
 
 function content_video_gen() {
-    dir=$1
-    pic_content_file=$dir/pic_content.txt
-    content_file=$dir/content.txt
-    content_file_fix=$dir/content_fix.txt
-    content_video=$dir/video.mp4
-    content_video_ass=$dir/video_ass.mp4
-    content_voice_file=$dir/result.wav
-    content_srt=$dir/content.srt
-    content_correct_srt=$dir/content_corrected.srt
-    content_correct_ass=$dir/content_correct.ass
-    content_pic=$dir/pic_cover_0.jpg
+    local_dir=$1
+    local_title=$2
+    local_content_file=$3
+    pic_content_file=$local_dir/pic_content.txt
+    content_file=$local_dir/content.txt
+    content_file_fix=$local_dir/content_fix.txt
+    content_video=$local_dir/video.mp4
+    content_video_ass=$local_dir/video_ass.mp4
+    content_voice_file=$local_dir/result.wav
+    content_srt=$local_dir/content.srt
+    content_correct_srt=$local_dir/content_corrected.srt
+    content_correct_ass=$local_dir/content_correct.ass
+    content_pic=$local_dir/pic_cover_0.jpg
 
-    mkdir -p $dir
+    mkdir -p $local_dir
 
     #生成内容图
-    echo "活着" > $pic_content_file
-    content_pic_get $dir $pic_content_file
+    if [ $local_title != "null" ]; then
+        echo $local_title > $pic_content_file
+    fi
+    content_pic_get $local_dir $pic_content_file
     #生成语音
     echo "我步入丛林，因为我希望生活得有意义……以免在临终时，发现自己从来没有活过。" > $content_file
+    if [ ! -f $local_content_file ]; then
+        cp $local_content_file $content_file
+    fi
     #cover_voice_gen "$(cat $content_file)" $dir
-    cover_voice_gen $content_file $dir
+    cover_voice_gen $content_file $local_dir
     #原文纠错
     content_fix $content_file $content_file_fix
     #生成视频
@@ -319,7 +326,7 @@ function content_video_gen_all() {
     #封面视频
     #cover_srt_gen 001 "余华老师的《活着》" "《活着》" black white bottom
     #内容页视频
-    content_video_gen 002
+    content_video_gen 002 "活着" ai_response/content.txt
     #merge_cover_video_all  2
 }
 
