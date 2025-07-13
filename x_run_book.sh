@@ -182,6 +182,9 @@ function cover_srt_gen() {
     #是否在最终的视频上添加大字背景
     if [ $title != "null" ]; then
         video_bg_srt_gen $cover_video_ass $title $cover_video_bg_srt
+        cp $cover_video_bg_srt $cover_pic_dir/x_final.mp4
+    else
+        cp $cover_video_ass $cover_pic_dir/x_final.mp4
     fi
 }
 
@@ -307,6 +310,8 @@ function content_video_gen() {
     srt_ass_gen $content_correct_srt $content_correct_ass
     #生成带ass字幕的视频
     gen_ass_video $content_video $content_correct_ass $content_video_ass
+    #生成最终视频
+    cp  $content_video_ass $local_dir/x_final.mp4
 }
 
 function merge_cover_video_all() {
@@ -314,7 +319,7 @@ function merge_cover_video_all() {
     rm -f cover_list.txt
     for((i=0;i<$max_num;i++)); do
         dir=00$i
-        echo "file '$dir/cover_video_ass.mp4'" >> cover_list.txt
+        echo "file '$dir/x_final.mp4'" >> cover_list.txt
     done
     # 合并视频
     rm -f merged_cover.mp4
@@ -347,9 +352,9 @@ function content_video_gen_all() {
     #封面视频
     #cover_srt_gen 001 "毛姆的《${title}》" "《${title}》" black white bottom
     #内容页视频
-    content_video_gen 002 "${title}" $file_txt
+    #content_video_gen 002 "${title}" $file_txt
 
-    #merge_cover_video_all  2
+    merge_cover_video_all  2
 }
 
 #整体添加bgm
