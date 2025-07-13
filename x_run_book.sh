@@ -202,27 +202,30 @@ function srt_gen() {
     #语音转字幕
     local_voice=$1
     local_srt=$2
-    rm -f $local_srt
-    python srt_gen.py $local_voice $local_srt 
+    local_srt_words=$3
+    local_srt_final=$4
+    rm -f $local_srt $local_srt_words $local_srt_final
+    python srt_gen.py $local_voice $local_srt large-v3 zh $local_srt_words
+    python srt_gen_fromwords.py $local_srt_words $local_srt_final
 }
 
 function srt_fix() {
     #字幕纠错
     local_srt=$1
     local_content=$2
-    #local_correct_srt=$3
+    local_correct_srt=$3
     if [ ! -f $local_srt ]; then
         echo "字幕文件不存在，exit"
         exit 1
     fi
-    #rm -f $local_correct_srt
-    python fix_srt.py $local_srt $local_content # -o $local_correct_srt
+    rm -f $local_correct_srt
+    python fix_srt.py $local_srt $local_content -o $local_correct_srt
 }
 
 function srt_ass_gen() {
     local_correct_srt=$1
     local_srt_ass=$2
-    python3 srt2ass_with_effect.py  --align 5 --font "鸿雷板书简体-正式版" --size 120 --color red --effect fadein $local_correct_srt $local_srt_ass
+    python3 srt2ass_with_effect.py  --align 5 --font "鸿雷板书简体-正式版" --size 120 --color red $local_correct_srt $local_srt_ass
 }
 
 # 添加背景文字（可选）
@@ -271,8 +274,10 @@ function content_video_gen() {
     content_video_ass=$local_dir/video_ass.mp4
     content_voice_file=$local_dir/result.wav
     content_srt=$local_dir/content.srt
+    content_srt_words=$local_dir/content_srt_words.txt
+    content_srt_final=$local_dir/content_srt_final.srt
     content_correct_srt=$local_dir/content_corrected.srt
-    content_correct_ass=$local_dir/content_correct.ass
+    content_correct_ass=$local_dir/content_corrected.ass
     content_pic=$local_dir/pic_cover_0.jpg
 
     mkdir -p $local_dir
@@ -295,9 +300,9 @@ function content_video_gen() {
     #生成视频
     content_video_pic_gen $content_pic $content_voice_file $content_video
     #生成字幕
-    srt_gen $content_voice_file $content_srt 
+    srt_gen $content_voice_file $content_srt $content_srt_words $content_srt_final
     #字幕纠错
-    srt_fix  $content_srt $content_file_fix $content_correct_srt
+    srt_fix  $content_srt_final $content_file_fix $content_correct_srt
     #字幕转ass
     srt_ass_gen $content_correct_srt $content_correct_ass
     #生成带ass字幕的视频
