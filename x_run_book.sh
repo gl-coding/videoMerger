@@ -5,7 +5,7 @@ filename=$data_dir/result
 
 #cover
 content_pic=$data_dir/pic_cover_0.jpg
-line_max_chars=20
+line_max_chars=15
 ass_font_size=120
 
 #wav
@@ -346,7 +346,8 @@ function content_video_gen_all() {
     title="刀锋"
     file_txt=ai_responses_plain.txt
     #封面视频
-    cover_srt_gen 000 "今天我们分享的是" null picture/cover_pic_heng_169.jpg white center
+    #cover_srt_gen 000 "今天我们分享的是" null picture/cover_pic_heng_169.jpg white center
+    cover_srt_gen 000 "今天我们分享的是毛姆的一篇长篇小说《${title}》" null picture/cover_pic_heng_169.jpg white center
     #封面视频
     #cover_srt_gen 001 "毛姆的《${title}》" "《${title}》" picture/cover_pic_heng_169.jpg white bottom
     #cover_srt_gen 001 "毛姆的《${title}》" "《${title}》" black white bottom
