@@ -356,7 +356,7 @@ function ds() {
 }
 
 function content_video_gen_all() {
-    title="刀锋"
+    title="习得性无助"
     file_txt=ai_responses_plain.txt
     #封面视频
     #cover_srt_gen 000 "今天我们分享的是" null picture/cover_pic_heng_169.jpg white center
@@ -373,7 +373,7 @@ function content_video_gen_all() {
         dir_id="$(printf "%03d" $(($id+1)))"
         id=$(($id+1))
         echo $dir_id $file
-        #content_video_gen $dir_id "${title}" $file
+        content_video_gen $dir_id "${title}" $file
     done
     #merge_cover_video_all  2
 }
