@@ -30,7 +30,7 @@ content_pic=$data_dir/pic_cover_0.jpg
 #wav
 uuid=result
 voice_file=$data_dir/$uuid.wav
-bgm_file=bgm/8.wav
+bgm_file=bgm/1.wav
 
 function cover_video_gen() {
     #使用ffmpeg在一张图片上生成多个文字，每个文字使用不同的字体、颜色、大小、位置
@@ -314,7 +314,19 @@ function content_video_gen() {
     cp  $content_video_ass $local_dir/x_final.mp4
 }
 
+#整体添加bgm
+function video_add_bgm() {
+    local_video=$1
+    local_bgm_video=$2
+    # 循环背景音乐，音量20%，3秒淡入淡出
+    rm -f $local_bgm_video
+    sh add_bgm.sh -v 0.4 -l -f 1 -F 1 $local_video $bgm_file $local_bgm_video
+}
+
 function merge_cover_video_all() {
+    final_video=merged_cover.mp4
+    bgm_video=merged_cover_bgm.mp4
+
     max_num=$(($1+1))
     rm -f cover_list.txt
     for((i=0;i<$max_num;i++)); do
@@ -322,10 +334,9 @@ function merge_cover_video_all() {
         echo "file '$dir/x_final.mp4'" >> cover_list.txt
     done
     # 合并视频
-    rm -f merged_cover.mp4
-    ffmpeg -f concat -safe 0 -i cover_list.txt -c copy merged_cover.mp4
-    
-    echo "封面视频合并完成: cover/merged_cover.mp4"
+    rm -f $final_video $bgm_video
+    ffmpeg -f concat -safe 0 -i cover_list.txt -c copy $final_video
+    video_add_bgm $final_video $bgm_video
     
     # 删除临时文件
     rm cover_list.txt
@@ -357,12 +368,7 @@ function content_video_gen_all() {
     merge_cover_video_all  2
 }
 
-#整体添加bgm
-function video_add_bgm() {
-    # 循环背景音乐，音量20%，3秒淡入淡出
-    rm -f $content_video_bg_srt_ass_header_bgm
-    sh add_bgm.sh -v 0.4 -l -f 1 -F 1 $content_video_bg_srt_ass_header $bgm_file $content_video_bg_srt_ass_header_bgm
-}
+
 
 function clear_audio_data() {
     #清空语音数据
