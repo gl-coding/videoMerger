@@ -36,7 +36,7 @@ def generate_srt_from_words(words_file, output_srt):
             current_text += word
 
             # 检查单词是否以标点符号结尾
-            if word and word[-1] in "，。！？,.!?":
+            if word and word[-1] in "，。！？,.!?;；:：":
                 subs.append((
                     format_timestamp(current_start),
                     format_timestamp(current_end),

@@ -192,13 +192,16 @@ function content_video_pic_gen() {
 
 function srt_gen() {
     #语音转字幕
-    local_voice=$1
-    local_srt=$2
-    local_srt_words=$3
-    local_srt_final=$4
+    local_content=$1
+    local_voice=$2
+    local_srt=$3
+    local_srt_words=$4
+    local_srt_words_punc=$5
+    local_srt_final=$6
     rm -f $local_srt $local_srt_words $local_srt_final
     python srt_gen.py $local_voice $local_srt large-v3 zh $local_srt_words
-    python srt_gen_fromwords.py $local_srt_words $local_srt_final
+    python srt_punc_map.py $local_content $local_srt_words $local_srt_words_punc
+    python srt_gen_fromwords.py $local_srt_words_punc $local_srt_final
 }
 
 function srt_fix() {
@@ -269,6 +272,7 @@ function content_video_gen() {
     content_voice_file=$local_dir/result.wav
     content_srt=$local_dir/content.srt
     content_srt_words=$local_dir/content_srt_words.txt
+    content_srt_words_punc=$local_dir/content_srt_words_punc.txt
     content_srt_final=$local_dir/content_srt_final.srt
     content_correct_srt=$local_dir/content_corrected.srt
     content_correct_srt_merge=$local_dir/content_corrected_merge.srt
@@ -295,7 +299,7 @@ function content_video_gen() {
     #生成视频
     content_video_pic_gen $content_pic $content_voice_file $content_video
     #生成字幕
-    srt_gen $content_voice_file $content_srt $content_srt_words $content_srt_final
+    srt_gen $content_file_fix $content_voice_file $content_srt $content_srt_words $content_srt_words_punc $content_srt_final
     #字幕纠错
     srt_fix  $content_srt_final $content_file_fix $content_correct_srt $content_correct_srt_merge
     #字幕转ass
@@ -372,6 +376,9 @@ function content_video_gen_all() {
     for file in $(ls $prefix*); do
         dir_id="$(printf "%03d" $(($id+1)))"
         id=$(($id+1))
+        if [ $id != 6 ]; then
+            continue
+        fi
         echo $dir_id $file
         content_video_gen $dir_id "${title}" $file
     done
