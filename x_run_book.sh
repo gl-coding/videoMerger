@@ -113,6 +113,7 @@ function cover_srt_gen() {
     cover_voice_file=$cover_pic_dir/result.wav
     cover_voice_srt=$cover_pic_dir/cover_voice_srt.srt
     cover_voice_srt_correct=$cover_pic_dir/cover_voice_srt_corrected.srt
+    cover_voice_srt_correct_merge=$cover_pic_dir/cover_voice_srt_corrected_merge.srt
     cover_voice_srt_ass=$cover_pic_dir/cover_voice_srt_ass.ass
     cover_video_wav=$cover_pic_dir/cover_video_wav.mp3
     cover_voice_srt_words=$cover_pic_dir/cover_voice_srt_words.txt
@@ -148,7 +149,7 @@ function cover_srt_gen() {
 
     #字幕校验
     echo $text > $cover_text
-    srt_fix $cover_voice_srt_final $cover_text $cover_voice_srt_correct
+    srt_fix $cover_voice_srt_final $cover_text $cover_voice_srt_correct $cover_voice_srt_correct_merge
     #生成ass文件
     if [ $pos == "center" ]; then
         align=5
@@ -161,7 +162,7 @@ function cover_srt_gen() {
     #python3 srt2ass_with_effect.py $cover_voice_srt $cover_voice_srt_ass --align 2 --font "鸿雷板书简体-正式版" --size 120 --color white  
     # python3 srt2ass_with_effect.py $cover_voice_srt_correct $cover_voice_srt_ass --align $align \
     #     --font "鸿雷板书简体-正式版" --size 120 --color $font_color --effect typewriter --max-chars 5
-    python3 srt2ass_with_effect.py $cover_voice_srt_correct $cover_voice_srt_ass --align $align \
+    python3 srt2ass_with_effect.py $cover_voice_srt_correct_merge $cover_voice_srt_ass --align $align \
         --font "鸿雷板书简体-正式版" --size $ass_font_size --color $font_color --max-chars $line_max_chars
     #mp4合并ass
     rm -f $cover_video_ass
@@ -205,12 +206,14 @@ function srt_fix() {
     local_srt=$1
     local_content=$2
     local_correct_srt=$3
+    local_correct_srt_merge=$4
     if [ ! -f $local_srt ]; then
         echo "字幕文件不存在，exit"
         exit 1
     fi
-    rm -f $local_correct_srt
+    rm -f $local_correct_srt $local_correct_srt_merge
     python fix_srt.py $local_srt $local_content -o $local_correct_srt
+    python3 srt_merge.py $local_correct_srt $local_correct_srt_merge
 }
 
 function srt_ass_gen() {
@@ -268,6 +271,7 @@ function content_video_gen() {
     content_srt_words=$local_dir/content_srt_words.txt
     content_srt_final=$local_dir/content_srt_final.srt
     content_correct_srt=$local_dir/content_corrected.srt
+    content_correct_srt_merge=$local_dir/content_corrected_merge.srt
     content_correct_ass=$local_dir/content_corrected.ass
     content_pic=$local_dir/pic_cover_0.jpg
 
@@ -293,9 +297,9 @@ function content_video_gen() {
     #生成字幕
     srt_gen $content_voice_file $content_srt $content_srt_words $content_srt_final
     #字幕纠错
-    srt_fix  $content_srt_final $content_file_fix $content_correct_srt
+    srt_fix  $content_srt_final $content_file_fix $content_correct_srt $content_correct_srt_merge
     #字幕转ass
-    srt_ass_gen $content_correct_srt $content_correct_ass
+    srt_ass_gen $content_correct_srt_merge $content_correct_ass
     #生成带ass字幕的视频
     gen_ass_video $content_video $content_correct_ass $content_video_ass
     #生成最终视频
@@ -348,12 +352,12 @@ function content_video_gen_all() {
     file_txt=ai_responses_plain.txt
     #封面视频
     #cover_srt_gen 000 "今天我们分享的是" null picture/cover_pic_heng_169.jpg white center
-    cover_srt_gen 000 "今天我们分享的是毛姆的一篇长篇小说《${title}》" null picture/cover_pic_heng_169.jpg white center
+    #cover_srt_gen 000 "今天我们分享的是毛姆的一篇长篇小说《${title}》" null picture/cover_pic_heng_169.jpg white center
     #封面视频
     #cover_srt_gen 001 "毛姆的《${title}》" "《${title}》" picture/cover_pic_heng_169.jpg white bottom
     #cover_srt_gen 001 "毛姆的《${title}》" "《${title}》" black white bottom
     #内容页视频
-    #content_video_gen 002 "${title}" $file_txt
+    content_video_gen 002 "${title}" $file_txt
 
     #merge_cover_video_all  2
 }
