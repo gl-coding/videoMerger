@@ -51,7 +51,7 @@ function cover_video_gen() {
 function content_pic_get() {
     local_dir=$1
     local_title_file=$2
-    python3 coze_content_pic_gen.py $dir "$(cat $local_title_file)"
+    python3 coze_content_pic_gen.py $local_dir "$(cat $local_title_file)"
 }
 
 function content_fix() {
@@ -222,7 +222,7 @@ function srt_fix() {
 function srt_ass_gen() {
     local_correct_srt=$1
     local_srt_ass=$2
-    python3 srt2ass_with_effect.py  --align 5 --font "鸿雷板书简体-正式版" --size 120 --color red --effect typewriter $local_correct_srt $local_srt_ass
+    python3 srt2ass_with_effect.py  --align 5 --font "鸿雷板书简体-正式版" --size 120 --color red --effect fadein $local_correct_srt $local_srt_ass
 }
 
 # 添加背景文字（可选）
@@ -284,13 +284,14 @@ function content_video_gen() {
     content_pic_get $local_dir $pic_content_file
     #生成语音
     echo "我步入丛林，因为我希望生活得有意义……以免在临终时，发现自己从来没有活过。" > $content_file
-    if [ ! -f $local_content_file ]; then
+    if [ -f $local_content_file ]; then
         cp $local_content_file $content_file
     fi
-    #cover_voice_gen "$(cat $content_file)" $dir
-    cover_voice_gen $content_file $local_dir
-    #原文纠错
+    #原文纠错（去引用）
     content_fix $content_file $content_file_fix
+    #语音生成
+    #cover_voice_gen "$(cat $content_file)" $dir
+    cover_voice_gen $content_file_fix $local_dir
     #生成视频
     content_video_pic_gen $content_pic $content_voice_file $content_video
     #生成字幕
@@ -320,13 +321,29 @@ function merge_cover_video_all() {
     rm cover_list.txt
 }
 
+function gen_ds_content() {
+    mkdir -p ai_responses_tmp ai_responses
+    for file in $(ls ai_responses_tmp/*.md); do
+        echo $file
+        file_md=$file
+        file_txt=ai_responses_plain.txt
+        pandoc -f markdown -t plain $file_md -o $file_txt
+        content_video_gen 002 "$title" $file_txt
+        mv $file_md ai_responses/
+        break
+    done
+}
+
 function content_video_gen_all() {
+    title="刀锋"
+    file_txt=ai_responses_plain.txt
     #封面视频
     #cover_srt_gen 000 "今天我们分享的是" null cover/cover_pic_text_first.jpg white center
     #封面视频
-    #cover_srt_gen 001 "余华老师的《活着》" "《活着》" black white bottom
+    #cover_srt_gen 001 "毛姆的《${title}》" "《${title}》" black white bottom
     #内容页视频
-    content_video_gen 002 "活着" ai_response/content.txt
+    content_video_gen 002 "${title}" $file_txt
+
     #merge_cover_video_all  2
 }
 
