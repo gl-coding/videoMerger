@@ -2,35 +2,14 @@ data_dir=jiqimao
 voice=dushunan
 name=kumi的读书日记
 filename=$data_dir/result
-#content
-content_file=$filename"_text_rewrite.txt"
-content_file_fix=$filename"_text_rewrite_fix.txt"
-title_file=$filename"_text_title.txt"
-subtitle_file=$filename"_text_subtitle.txt"
-tmp_file=$data_dir/tmp.mp4
-#video
-content_video_bgm=$filename"_video_bgm.mp4"
-content_video_pic=$filename"_video_pic.mp4"
-content_video_srt=$filename"_video_srt.mp4"
-content_video_bg_srt=$filename"_video_bg_srt.mp4"
-content_video_bg_srt_ass=$filename"_video_bg_srt_ass.mp4"
-content_video_bg_srt_ass_header=$filename"_video_bg_srt_ass_header.mp4"
-content_video_bg_srt_ass_header_bgm=$filename"_video_bg_srt_ass_header_bgm.mp4"
-#srt
-src_srt=$filename"_srt.srt"
-corrected_srt=$filename"_srt_corrected.srt"
-srt_ass=$filename"_srt.ass"
-sentence_mapping_file=$filename"_srt_stc_mapping.txt"
-#pic
-local_pic=picture/doutu/013.jpg
-#content_pic=$filename"_pic.jpeg"
+
 #cover
 content_pic=$data_dir/pic_cover_0.jpg
 
 #wav
 uuid=result
 voice_file=$data_dir/$uuid.wav
-bgm_file=bgm/1.wav
+bgm_file=bgm/slow/7.wav
 
 function cover_video_gen() {
     #使用ffmpeg在一张图片上生成多个文字，每个文字使用不同的字体、颜色、大小、位置
@@ -162,7 +141,7 @@ function cover_srt_gen() {
 
     #字幕校验
     echo $text > $cover_text
-    srt_fix $cover_voice_srt $cover_text #$cover_voice_srt_ass
+    srt_fix $cover_voice_srt $cover_text $cover_voice_srt_correct
     #生成ass文件
     if [ $pos == "center" ]; then
         align=5
@@ -324,8 +303,8 @@ function video_add_bgm() {
 }
 
 function merge_cover_video_all() {
-    final_video=merged_cover.mp4
-    bgm_video=merged_cover_bgm.mp4
+    final_video=0_merged_cover.mp4
+    bgm_video=0_merged_cover_bgm.mp4
 
     max_num=$(($1+1))
     rm -f cover_list.txt
@@ -359,16 +338,14 @@ function content_video_gen_all() {
     title="刀锋"
     file_txt=ai_responses_plain.txt
     #封面视频
-    #cover_srt_gen 000 "今天我们分享的是" null cover/cover_pic_text_first.jpg white center
+    cover_srt_gen 000 "今天我们分享的是" null picture/cover_pic_heng_169.jpg white center
     #封面视频
     #cover_srt_gen 001 "毛姆的《${title}》" "《${title}》" black white bottom
     #内容页视频
     #content_video_gen 002 "${title}" $file_txt
 
-    merge_cover_video_all  2
+    #merge_cover_video_all  2
 }
-
-
 
 function clear_audio_data() {
     #清空语音数据
