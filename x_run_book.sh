@@ -113,6 +113,8 @@ function cover_srt_gen() {
     cover_voice_srt_correct=$cover_pic_dir/cover_voice_srt_corrected.srt
     cover_voice_srt_ass=$cover_pic_dir/cover_voice_srt_ass.ass
     cover_video_wav=$cover_pic_dir/cover_video_wav.mp3
+    cover_voice_srt_words=$cover_pic_dir/cover_voice_srt_words.txt
+    cover_voice_srt_final=$cover_pic_dir/cover_voice_srt_final.srt
 
     mkdir -p $cover_pic_dir
 
@@ -120,7 +122,9 @@ function cover_srt_gen() {
     cover_voice_gen $text $cover_pic_dir
     #生成字幕
     rm -f $cover_voice_srt
-    python srt_gen.py $cover_voice_file $cover_voice_srt 
+    #python srt_gen.py $cover_voice_file $cover_voice_srt 
+    #srt_gen $cover_voice_file $cover_voice_srt_words $cover_voice_srt_final
+    srt_gen $cover_voice_file $cover_voice_srt $cover_voice_srt_words $cover_voice_srt_final
     if [ $bg_color != "black" ]; then
         echo "图片背景视频"
         if [ -f $bg_color ]; then
@@ -141,7 +145,7 @@ function cover_srt_gen() {
 
     #字幕校验
     echo $text > $cover_text
-    srt_fix $cover_voice_srt $cover_text $cover_voice_srt_correct
+    srt_fix $cover_voice_srt_final $cover_text $cover_voice_srt_correct
     #生成ass文件
     if [ $pos == "center" ]; then
         align=5
@@ -340,6 +344,7 @@ function content_video_gen_all() {
     #封面视频
     cover_srt_gen 000 "今天我们分享的是" null picture/cover_pic_heng_169.jpg white center
     #封面视频
+    #cover_srt_gen 001 "毛姆的《${title}》" "《${title}》" picture/cover_pic_heng_169.jpg white bottom
     #cover_srt_gen 001 "毛姆的《${title}》" "《${title}》" black white bottom
     #内容页视频
     #content_video_gen 002 "${title}" $file_txt
