@@ -10,7 +10,8 @@
 支持通过--dict-file参数指定补充词典文件，文件中每行一个词，这些词会作为NLP分析的补充被高亮显示。
 支持通过--skip-lines参数指定要跳过分析的字幕行号（从1开始），多个行号用逗号分隔。
 支持通过--effect typewriter参数实现单字逐个显示的打字机效果。
-用法：python3 srt2ass_with_effect.py input.srt output.ass [--align 5] [--font "行书"] [--size 100] [--color white] [--effects "fade,move,scale,typewriter"] [--highlight] [--keyword-size 120] [--per-line] [--dict-file words.txt] [--skip-lines "1,3,5"]
+支持通过--max-chars参数指定每行最大字符数，超过时自动换行。
+用法：python3 srt2ass_with_effect.py input.srt output.ass [--align 5] [--font "行书"] [--size 100] [--color white] [--effects "fade,move,scale,typewriter"] [--highlight] [--keyword-size 120] [--per-line] [--dict-file words.txt] [--skip-lines "1,3,5"] [--max-chars 20]
 """
 import sys
 import os
@@ -288,17 +289,86 @@ def apply_typewriter_effect(text, duration_ms):
     result = ""
     current_time = 0
     
-    # 为每个字符添加延迟显示标签
-    for char in content:
-        # 每个字符从透明到不透明
-        result += f"{style_tag}{{\\alpha&HFF&\\t({int(current_time)},{int(current_time+10)},\\alpha&H00&)}}{char}"
-        current_time += interval
+    # 特殊处理换行符\N
+    segments = []
+    current_segment = ""
+    i = 0
+    while i < len(content):
+        # 检查是否是\N换行符
+        if i < len(content) - 1 and content[i] == '\\' and content[i+1] == 'N':
+            if current_segment:
+                segments.append(current_segment)
+            segments.append("\\N")  # 保留\N作为一个整体
+            current_segment = ""
+            i += 2  # 跳过\N两个字符
+        else:
+            current_segment += content[i]
+            i += 1
+    
+    # 添加最后一个片段
+    if current_segment:
+        segments.append(current_segment)
+    
+    # 为每个字符添加延迟显示标签，但\N作为一个整体处理
+    for segment in segments:
+        if segment == "\\N":
+            # 换行符直接添加，不添加动画效果
+            result += "\\N"
+        else:
+            # 正常字符逐个添加动画效果
+            for char in segment:
+                result += f"{style_tag}{{\\alpha&HFF&\\t({int(current_time)},{int(current_time+10)},\\alpha&H00&)}}{char}"
+                current_time += interval
     
     return result
 
+def wrap_text_by_char_count(text, max_chars):
+    """
+    按照最大字符数对文本进行换行处理
+    Args:
+        text: 原始文本
+        max_chars: 每行最大字符数
+    返回: 处理后的文本
+    """
+    if not text or max_chars <= 0:
+        return text
+        
+    result = []
+    current_line = ""
+    
+    # 处理可能已经包含\N的情况
+    lines = text.split('\\N')
+    
+    for line in lines:
+        if not line:
+            result.append("")
+            continue
+            
+        # 如果当前行已经小于最大字符数，直接添加
+        if len(line) <= max_chars:
+            result.append(line)
+            continue
+            
+        # 需要进一步分割的情况
+        chars = list(line)
+        current_line = ""
+        
+        for char in chars:
+            if len(current_line) >= max_chars:
+                result.append(current_line)
+                current_line = char
+            else:
+                current_line += char
+                
+        # 添加最后一行
+        if current_line:
+            result.append(current_line)
+    
+    return '\\N'.join(result)
+
 def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, color="white", 
             effect="fade", effects=None, color2=None, size2=None, split_pos=0, highlight=False, 
-            keyword_size=None, per_line=False, dict_file=None, skip_lines=None):
+            keyword_size=None, per_line=False, dict_file=None, skip_lines=None, max_chars=0):
     """
     转换SRT到ASS，支持关键词高亮和动画效果轮播
     """
@@ -420,6 +490,10 @@ def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, 
         # 替换文本中的换行符
         content = sub.content.replace('\n', '\\N')
         
+        # 如果指定了最大字符数，进行自动换行处理
+        if max_chars > 0:
+            content = wrap_text_by_char_count(content, max_chars)
+        
         # 处理文本样式
         if highlight:
             # 如果是跳过的行，使用普通样式
@@ -478,6 +552,9 @@ def srt2ass(srt_path, ass_path, font_size=100, font_name="行书", alignment=5, 
             print(f"动画效果轮播：{' → '.join(effect_list)}")
         else:
             print(f"动画效果：{effect}")
+    
+    if max_chars > 0:
+        print(f"已启用自动换行，每行最大字符数: {max_chars}")
 
 def main():
     parser = argparse.ArgumentParser(description='将SRT字幕转换为ASS字幕，并添加特效')
@@ -497,6 +574,7 @@ def main():
     parser.add_argument('--per-line', action='store_true', help='逐行分析关键词')
     parser.add_argument('--dict-file', help='补充词典文件路径')
     parser.add_argument('--skip-lines', help='要跳过分析的行号列表，用逗号分隔（如"1,3,5"）')
+    parser.add_argument('--max-chars', type=int, default=0, help='每行最大字符数，超过时自动换行（0表示不限制）')
     
     args = parser.parse_args()
     
@@ -515,7 +593,8 @@ def main():
         keyword_size=args.keyword_size,
         per_line=args.per_line,
         dict_file=args.dict_file,
-        skip_lines=args.skip_lines
+        skip_lines=args.skip_lines,
+        max_chars=args.max_chars
     )
 
 if __name__ == "__main__":

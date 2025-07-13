@@ -5,6 +5,7 @@ filename=$data_dir/result
 
 #cover
 content_pic=$data_dir/pic_cover_0.jpg
+line_max_chars=20
 
 #wav
 uuid=result
@@ -156,8 +157,10 @@ function cover_srt_gen() {
     fi
     rm -f $cover_voice_srt_ass
     #python3 srt2ass_with_effect.py $cover_voice_srt $cover_voice_srt_ass --align 2 --font "鸿雷板书简体-正式版" --size 120 --color white  
+    # python3 srt2ass_with_effect.py $cover_voice_srt_correct $cover_voice_srt_ass --align $align \
+    #     --font "鸿雷板书简体-正式版" --size 120 --color $font_color --effect typewriter --max-chars 5
     python3 srt2ass_with_effect.py $cover_voice_srt_correct $cover_voice_srt_ass --align $align \
-        --font "鸿雷板书简体-正式版" --size 120 --color $font_color --effect typewriter 
+        --font "鸿雷板书简体-正式版" --size 120 --color $font_color --max-chars $line_max_chars
     #mp4合并ass
     rm -f $cover_video_ass
     ffmpeg -i $cover_pic_video -vf "ass=$cover_voice_srt_ass:fontsdir=./font" -c:a copy $cover_video_ass
@@ -211,7 +214,7 @@ function srt_fix() {
 function srt_ass_gen() {
     local_correct_srt=$1
     local_srt_ass=$2
-    python3 srt2ass_with_effect.py  --align 5 --font "鸿雷板书简体-正式版" --size 120 --color red $local_correct_srt $local_srt_ass
+    python3 srt2ass_with_effect.py  --align 5 --font "鸿雷板书简体-正式版" --size 120 --color red $local_correct_srt $local_srt_ass --max-chars $line_max_chars
 }
 
 # 添加背景文字（可选）
