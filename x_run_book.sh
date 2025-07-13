@@ -334,7 +334,15 @@ function merge_cover_video_all() {
     rm cover_list.txt
 }
 
-function gen_ds_content() {
+function split_file_txt() {
+    local_file_txt=$1
+    line_num=$2
+    prefix=$3
+    #对file_txt进行分段，一行一个文件，并且添加文件后缀
+    split -l $line_num $local_file_txt $prefix
+}
+
+function ds() {
     mkdir -p ai_responses_tmp ai_responses
     for file in $(ls ai_responses_tmp/*.md); do
         echo $file
@@ -357,8 +365,16 @@ function content_video_gen_all() {
     #cover_srt_gen 001 "毛姆的《${title}》" "《${title}》" picture/cover_pic_heng_169.jpg white bottom
     #cover_srt_gen 001 "毛姆的《${title}》" "《${title}》" black white bottom
     #内容页视频
-    content_video_gen 002 "${title}" $file_txt
-
+    #对file_txt进行分段，一行一个文件，并且添加文件后缀
+    id=1
+    prefix=ai_responses_plain_part_
+    split_file_txt $file_txt 1 $prefix
+    for file in $(ls $prefix*); do
+        dir_id="$(printf "%03d" $(($id+1)))"
+        id=$(($id+1))
+        echo $dir_id $file
+        #content_video_gen $dir_id "${title}" $file
+    done
     #merge_cover_video_all  2
 }
 
