@@ -133,7 +133,8 @@ function cover_srt_gen() {
             cp $bg_color $cover_pic_text_first
             #生成图片视频
             rm -f $cover_pic_video
-            sh image_to_video.sh $cover_pic_text_first $cover_voice_file $cover_pic_video -e zoom_in -s 2.0 --final-zoom 2.0
+            #sh image_to_video.sh $cover_pic_text_first $cover_voice_file $cover_pic_video -e zoom_in -s 2.0 --final-zoom 2.0
+            sh image_to_video.sh $cover_pic_text_first $cover_voice_file $cover_pic_video -e null
         else
             echo "图片不存在，使用黑色背景图片"
             rm -f $cover_pic_video
