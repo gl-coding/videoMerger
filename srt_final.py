@@ -25,6 +25,7 @@ def is_all_punc(word):
     return word in punc
 
 def srt_to_content(srt_content_file):
+    result_list = []
     with open(srt_content_file, "r", encoding="utf-8") as f:
         srt_lines = f.readlines()
         cnt = 0
@@ -33,11 +34,14 @@ def srt_to_content(srt_content_file):
                 line_split = line.split("  ")
                 word = line_split[1].strip()
                 word = remove_punc(word)
-                print(word)
+                #print(cnt, word, pypinyin.lazy_pinyin(word))
+                result_list.append((cnt, word, pypinyin.lazy_pinyin(word)))
+                cnt += 1
+    return result_list
 
 def content_map(content_file):
-    content_map = {}
     content_map_list = []
+    result_list = []
     with open(content_file, "r", encoding="utf-8") as f:
         content_lines = f.readlines()
         pre_word = ""
@@ -60,11 +64,14 @@ def content_map(content_file):
                 content_map_list.append([cur_word, clean_word, local_str])
                 pre_word = cur_word
     for item in content_map_list:
-        print(" ".join(item))
+        #print(" ".join(item))
+        if item[1] != "":
+            result_list.append((pypinyin.lazy_pinyin(item[1]), item[1], item[2]))
+    return result_list
 
 if __name__ == "__main__":
     srt_file = "006/content_srt_words.txt"
     content_file = "006/content_fix.txt"
 
-    #srt_to_content(srt_file)
-    content_map(content_file)
+    content_map_list = content_map(content_file)
+    srt_map_list = srt_to_content(srt_file)
