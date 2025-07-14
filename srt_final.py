@@ -24,6 +24,22 @@ def is_all_punc(word):
     punc = "，。！？,.!?;；:：、《》“”"
     return word in punc
 
+def srt_replace(srt_content_file, replace_map):
+    srt_lines_new = []
+    with open(srt_content_file, "r", encoding="utf-8") as f:
+        srt_lines = f.readlines()
+        idx = 0
+        for line in srt_lines:
+            print(line)
+            line_split = line.split("  ")[0]
+            replace_word = replace_map.get(idx, "")
+            line_new = line_split + "  " + replace_word
+            srt_lines_new.append(line_new)
+            idx += 1
+    with open(srt_content_file + "_new", "w", encoding="utf-8") as f:    
+        for line in srt_lines_new:
+            f.write(line + "\n")
+
 def srt_to_content(srt_content_file):
     result_list = []
     with open(srt_content_file, "r", encoding="utf-8") as f:
@@ -74,7 +90,7 @@ def content_map(content_file):
     return result_list
 
 def line_map_new(final_map_list):
-    result_list = []
+    result_list = {}
     local_str = final_map_list[0][3]
     global_idx = -1
     for i in range(1, len(final_map_list)):
@@ -83,16 +99,16 @@ def line_map_new(final_map_list):
         global_idx = idx
         if idx != pre_idx:
             print(pre_idx, local_str)
-            result_list.append([global_idx, local_str])
+            result_list[pre_idx] = local_str
             local_str = final_map_list[i][5]
         else:
             local_str += final_map_list[i][5]
     print(global_idx, local_str)
-    result_list.append([global_idx, local_str])
+    result_list[global_idx] = local_str
     return result_list
 
 if __name__ == "__main__":
-    dir = "006"
+    dir = "002"
     srt_file = dir + "/content_srt_words.txt"
     content_file = dir + "/content_fix.txt"
 
@@ -115,4 +131,7 @@ if __name__ == "__main__":
             print(idx, word, pinyin, "None", "None", "None")
             final_map_list.append([idx, word, pinyin, "None", "None", "None"])
             cnt += 1
-    line_map_new(final_map_list)
+    res = line_map_new(final_map_list)
+    for item in res:
+        print(item, res[item])
+    srt_replace(srt_file, res)
