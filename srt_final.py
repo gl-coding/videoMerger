@@ -35,7 +35,11 @@ def srt_to_content(srt_content_file):
                 word = line_split[1].strip()
                 word = remove_punc(word)
                 #print(cnt, word, pypinyin.lazy_pinyin(word))
-                result_list.append((word, pypinyin.lazy_pinyin(word), cnt))
+                #result_list.append((word, pypinyin.lazy_pinyin(word), cnt))
+                #拆分中文字符串
+                for it in word:
+                    #print(it)
+                    result_list.append((cnt, it, pypinyin.lazy_pinyin(it)))
                 cnt += 1
     return result_list
 
@@ -75,5 +79,11 @@ if __name__ == "__main__":
 
     content_map_list = content_map(content_file)
     srt_map_list = srt_to_content(srt_file)
-    for item in content_map_list: print(item)
-    #for item in srt_map_list: print(item)
+    #for item in content_map_list: print(item)
+    cnt = 0
+    for i in range(len(srt_map_list)):
+        #print(srt_map_list[i])
+        idx  = srt_map_list[i][0]
+        word = srt_map_list[i][1]
+        print(idx, word, content_map_list[cnt])
+        cnt += 1
