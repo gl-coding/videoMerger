@@ -376,7 +376,7 @@ function content_video_gen_all() {
     for file in $(ls $prefix*); do
         dir_id="$(printf "%03d" $(($id+1)))"
         id=$(($id+1))
-        if [ $id != 6 ]; then
+        if [ 1 -eq 1 ] && [ $id != 5 ]; then
             continue
         fi
         echo $dir_id $file
