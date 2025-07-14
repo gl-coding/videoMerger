@@ -73,6 +73,26 @@ def content_map(content_file):
             result_list.append([item[1], pypinyin.lazy_pinyin(item[1]), item[2]])
     return result_list
 
+def line_map_new(final_map_list):
+    pre_idx = -1 
+    same = False
+    local_str = final_map_list[0][3]
+    for item in final_map_list:
+        idx = item[0]
+        word = item[3]
+        word_punc = item[5]
+        if idx == pre_idx:
+            local_str += word
+            same = True
+        else:
+            if same:
+                print(idx, word, local_str)
+                same = False
+            else:
+                local_str = word
+                print(idx, word, local_str)
+        pre_idx = idx
+
 if __name__ == "__main__":
     srt_file = "006/content_srt_words.txt"
     content_file = "006/content_fix.txt"
@@ -81,9 +101,19 @@ if __name__ == "__main__":
     srt_map_list = srt_to_content(srt_file)
     #for item in content_map_list: print(item)
     cnt = 0
+    final_map_list = []
     for i in range(len(srt_map_list)):
         #print(srt_map_list[i])
         idx  = srt_map_list[i][0]
         word = srt_map_list[i][1]
-        print(idx, word, content_map_list[cnt])
-        cnt += 1
+        pinyin = srt_map_list[i][2]
+        if cnt < len(content_map_list):
+            map_word = content_map_list[cnt]
+            print(idx, word, pinyin, map_word[0], map_word[1], map_word[2])
+            final_map_list.append([idx, word, pinyin, map_word[0], map_word[1], map_word[2]])
+            cnt += 1
+        else:
+            print(idx, word, pinyin, "None", "None", "None")
+            final_map_list.append([idx, word, pinyin, "None", "None", "None"])
+            cnt += 1
+    line_map_new(final_map_list)
