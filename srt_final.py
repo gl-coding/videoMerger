@@ -82,20 +82,21 @@ def line_map_new(final_map_list):
         word = item[3]
         word_punc = item[5]
         if idx == pre_idx:
-            local_str += word
+            local_str += word_punc
             same = True
         else:
             if same:
                 print(idx, word, local_str)
                 same = False
             else:
-                local_str = word
+                local_str = word_punc
                 print(idx, word, local_str)
         pre_idx = idx
 
 if __name__ == "__main__":
-    srt_file = "006/content_srt_words.txt"
-    content_file = "006/content_fix.txt"
+    dir = "004"
+    srt_file = dir + "/content_srt_words.txt"
+    content_file = dir + "/content_fix.txt"
 
     content_map_list = content_map(content_file)
     srt_map_list = srt_to_content(srt_file)
