@@ -74,27 +74,25 @@ def content_map(content_file):
     return result_list
 
 def line_map_new(final_map_list):
-    pre_idx = -1 
-    same = False
+    result_list = []
     local_str = final_map_list[0][3]
-    for item in final_map_list:
-        idx = item[0]
-        word = item[3]
-        word_punc = item[5]
-        if idx == pre_idx:
-            local_str += word_punc
-            same = True
+    global_idx = -1
+    for i in range(1, len(final_map_list)):
+        pre_idx = final_map_list[i-1][0]
+        idx = final_map_list[i][0]
+        global_idx = idx
+        if idx != pre_idx:
+            print(pre_idx, local_str)
+            result_list.append([global_idx, local_str])
+            local_str = final_map_list[i][5]
         else:
-            if same:
-                print(idx, word, local_str)
-                same = False
-            else:
-                local_str = word_punc
-                print(idx, word, local_str)
-        pre_idx = idx
+            local_str += final_map_list[i][5]
+    print(global_idx, local_str)
+    result_list.append([global_idx, local_str])
+    return result_list
 
 if __name__ == "__main__":
-    dir = "004"
+    dir = "006"
     srt_file = dir + "/content_srt_words.txt"
     content_file = dir + "/content_fix.txt"
 
