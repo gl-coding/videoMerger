@@ -287,6 +287,11 @@ function content_video_gen() {
         echo $local_title > $pic_content_file
     fi
     content_pic_get $local_dir $pic_content_file
+    #如果内容图不存在，则退出
+    if [ ! -f $content_pic ]; then
+        echo "图片文件下载失败，exit"
+        exit 1
+    fi
     #生成语音
     echo "我步入丛林，因为我希望生活得有意义……以免在临终时，发现自己从来没有活过。" > $content_file
     if [ -f $local_content_file ]; then
@@ -302,9 +307,10 @@ function content_video_gen() {
     #生成字幕
     srt_gen $content_file_fix $content_voice_file $content_srt $content_srt_words $content_srt_words_punc $content_srt_final
     #字幕纠错
-    srt_fix  $content_srt_final $content_file_fix $content_correct_srt $content_correct_srt_merge
+    #srt_fix  $content_srt_final $content_file_fix $content_correct_srt $content_correct_srt_merge
     #字幕转ass
-    srt_ass_gen $content_correct_srt_merge $content_correct_ass
+    #srt_ass_gen $content_correct_srt_merge $content_correct_ass
+    srt_ass_gen $content_srt_final $content_correct_ass
     #生成带ass字幕的视频
     gen_ass_video $content_video $content_correct_ass $content_video_ass
     #生成最终视频
@@ -371,17 +377,18 @@ function content_video_gen_all() {
     #cover_srt_gen 001 "毛姆的《${title}》" "《${title}》" black white bottom
     #内容页视频
     #对file_txt进行分段，一行一个文件，并且添加文件后缀
-    id=2
+    id=1
     prefix=ai_responses_plain_part_
     split_file_txt $file_txt 1 $prefix
     for file in $(ls $prefix*); do
+        id=$(($id+1))
         dir_id="$(printf "%03d" $id)"
-        if [ 1 -eq 1 ] && [ $id != 2 ]; then
+        if [ 1 -eq 1 ] && [ $id != 4 ]; then
             continue
         fi
+        rm -rf $dir_id
         echo $dir_id $file
         content_video_gen $dir_id "${title}" $file
-        id=$(($id+1))
     done
     #merge_cover_video_all  2
 }
