@@ -376,7 +376,7 @@ function content_video_gen_all() {
     split_file_txt $file_txt 1 $prefix
     for file in $(ls $prefix*); do
         dir_id="$(printf "%03d" $id)"
-        if [ 0 -eq 1 ] && [ $id != 2 ]; then
+        if [ 1 -eq 1 ] && [ $id != 2 ]; then
             continue
         fi
         echo $dir_id $file
