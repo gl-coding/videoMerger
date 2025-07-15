@@ -371,17 +371,17 @@ function content_video_gen_all() {
     #cover_srt_gen 001 "毛姆的《${title}》" "《${title}》" black white bottom
     #内容页视频
     #对file_txt进行分段，一行一个文件，并且添加文件后缀
-    id=1
+    id=2
     prefix=ai_responses_plain_part_
     split_file_txt $file_txt 1 $prefix
     for file in $(ls $prefix*); do
-        id=$(($id+1))
         dir_id="$(printf "%03d" $id)"
         if [ 0 -eq 1 ] && [ $id != 2 ]; then
             continue
         fi
         echo $dir_id $file
         content_video_gen $dir_id "${title}" $file
+        id=$(($id+1))
     done
     #merge_cover_video_all  2
 }
