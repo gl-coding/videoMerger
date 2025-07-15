@@ -2,44 +2,30 @@ import os
 import sys
 import pypinyin
 
+pre_punc = "《“"
+post_punc = "，。！？,.!?;；:：、》”"
+all_punc = pre_punc + post_punc
+
 # word转换为拼音
 def word_to_pinyin(word):
     return pypinyin.lazy_pinyin(word)
 
-#去除两端的标点符号
-def remove_punc(word):
-    punc = "，。！？,.!?;；:：、《》“”"
-    #去掉两端的标点符号
-    word = word.strip(punc)
+#去除word两端的所有标点符号
+def remove_all_punc(word):
+    word = word.strip(all_punc)
     return word
 
-def is_punc(word):
-    punc = "，。！？,.!?;；:：、》”"
-    return word in punc
+#判断word是否为后缀标点符号
+def is_post_punc(word):
+    return word in post_punc
 
-def is_punc_otherwise(word):
-    punc = "《“"
-    return word in punc
+#判断word是否为前缀标点符号
+def is_pre_punc(word):
+    return word in pre_punc
 
+#判断word是否为标点符号
 def is_all_punc(word):
-    punc = "，。！？,.!?;；:：、《》“”"
-    return word in punc
-
-def srt_replace(srt_content_file, replace_map, srt_content_file_new):
-    srt_lines_new = []
-    with open(srt_content_file, "r", encoding="utf-8") as f:
-        srt_lines = f.readlines()
-        idx = 0
-        for line in srt_lines:
-            #print(line)
-            line_split = line.split("  ")[0]
-            replace_word = replace_map.get(idx, "")
-            line_new = line_split + "  " + replace_word
-            srt_lines_new.append(line_new)
-            idx += 1
-    with open(srt_content_file_new, "w", encoding="utf-8") as f:    
-        for line in srt_lines_new:
-            f.write(line + "\n")
+    return word in all_punc
 
 def srt_to_content(srt_content_file):
     result_list = []
@@ -50,7 +36,7 @@ def srt_to_content(srt_content_file):
             if "  " in line:
                 line_split = line.split("  ")
                 word = line_split[1].strip()
-                word = remove_punc(word)
+                word = remove_all_punc(word)
                 #print(cnt, word, pypinyin.lazy_pinyin(word))
                 #result_list.append((word, pypinyin.lazy_pinyin(word), cnt))
                 #拆分中文字符串
@@ -74,14 +60,14 @@ def content_map(content_file):
                     continue
                 #process
                 cur_word = word
-                if is_punc_otherwise(pre_word):
+                if is_pre_punc(pre_word):
                     local_str = pre_word + cur_word
-                elif is_punc(cur_word) and not is_punc_otherwise(cur_word):
+                elif is_post_punc(cur_word) and not is_pre_punc(cur_word):
                     local_str += cur_word
                     content_map_list.pop()
                 else:
                     local_str = cur_word
-                clean_word = remove_punc(local_str)
+                clean_word = remove_all_punc(local_str)
                 content_map_list.append([cur_word, clean_word, local_str])
                 pre_word = cur_word
     for item in content_map_list:
@@ -107,6 +93,22 @@ def line_map_new(final_map_list):
     print(global_idx, local_str)
     result_list[global_idx] = local_str
     return result_list
+
+def srt_replace(srt_content_file, replace_map, srt_content_file_new):
+    srt_lines_new = []
+    with open(srt_content_file, "r", encoding="utf-8") as f:
+        srt_lines = f.readlines()
+        idx = 0
+        for line in srt_lines:
+            #print(line)
+            line_split = line.split("  ")[0]
+            replace_word = replace_map.get(idx, "")
+            line_new = line_split + "  " + replace_word
+            srt_lines_new.append(line_new)
+            idx += 1
+    with open(srt_content_file_new, "w", encoding="utf-8") as f:    
+        for line in srt_lines_new:
+            f.write(line + "\n")
 
 if __name__ == "__main__":
     content_file = sys.argv[1]
