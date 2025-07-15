@@ -1,4 +1,5 @@
 import os
+import sys
 import pypinyin
 
 # word转换为拼音
@@ -24,19 +25,19 @@ def is_all_punc(word):
     punc = "，。！？,.!?;；:：、《》“”"
     return word in punc
 
-def srt_replace(srt_content_file, replace_map):
+def srt_replace(srt_content_file, replace_map, srt_content_file_new):
     srt_lines_new = []
     with open(srt_content_file, "r", encoding="utf-8") as f:
         srt_lines = f.readlines()
         idx = 0
         for line in srt_lines:
-            print(line)
+            #print(line)
             line_split = line.split("  ")[0]
             replace_word = replace_map.get(idx, "")
             line_new = line_split + "  " + replace_word
             srt_lines_new.append(line_new)
             idx += 1
-    with open(srt_content_file + "_new", "w", encoding="utf-8") as f:    
+    with open(srt_content_file_new, "w", encoding="utf-8") as f:    
         for line in srt_lines_new:
             f.write(line + "\n")
 
@@ -108,9 +109,9 @@ def line_map_new(final_map_list):
     return result_list
 
 if __name__ == "__main__":
-    dir = "002"
-    srt_file = dir + "/content_srt_words.txt"
-    content_file = dir + "/content_fix.txt"
+    content_file = sys.argv[1]
+    srt_file = sys.argv[2]
+    srt_file_new = sys.argv[3]
 
     content_map_list = content_map(content_file)
     srt_map_list = srt_to_content(srt_file)
@@ -132,6 +133,5 @@ if __name__ == "__main__":
             final_map_list.append([idx, word, pinyin, "None", "None", "None"])
             cnt += 1
     res = line_map_new(final_map_list)
-    for item in res:
-        print(item, res[item])
-    srt_replace(srt_file, res)
+    for item in res: print(item, res[item])
+    srt_replace(srt_file, res, srt_file_new)

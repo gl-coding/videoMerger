@@ -200,7 +200,8 @@ function srt_gen() {
     local_srt_final=$6
     rm -f $local_srt $local_srt_words $local_srt_final
     python srt_gen.py $local_voice $local_srt large-v3 zh $local_srt_words
-    python srt_punc_map.py $local_content $local_srt_words $local_srt_words_punc
+    #python srt_punc_map.py $local_content $local_srt_words $local_srt_words_punc
+    python srt_final.py $local_content $local_srt_words $local_srt_words_punc
     python srt_gen_fromwords.py $local_srt_words_punc $local_srt_final
 }
 
@@ -376,7 +377,7 @@ function content_video_gen_all() {
     for file in $(ls $prefix*); do
         dir_id="$(printf "%03d" $(($id+1)))"
         id=$(($id+1))
-        if [ 1 -eq 1 ] && [ $id != 5 ]; then
+        if [ 1 -eq 1 ] && [ $id != 2 ]; then
             continue
         fi
         echo $dir_id $file
