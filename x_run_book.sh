@@ -117,6 +117,7 @@ function cover_srt_gen() {
     cover_voice_srt_ass=$cover_pic_dir/cover_voice_srt_ass.ass
     cover_video_wav=$cover_pic_dir/cover_video_wav.mp3
     cover_voice_srt_words=$cover_pic_dir/cover_voice_srt_words.txt
+    cover_voice_srt_words_punc=$cover_pic_dir/cover_voice_srt_words_punc.txt
     cover_voice_srt_final=$cover_pic_dir/cover_voice_srt_final.srt
 
     mkdir -p $cover_pic_dir
@@ -127,7 +128,8 @@ function cover_srt_gen() {
     rm -f $cover_voice_srt
     #python srt_gen.py $cover_voice_file $cover_voice_srt 
     #srt_gen $cover_voice_file $cover_voice_srt_words $cover_voice_srt_final
-    srt_gen $cover_voice_file $cover_voice_srt $cover_voice_srt_words $cover_voice_srt_final
+    srt_gen $cover_text $cover_voice_file $cover_voice_srt $cover_voice_srt_words $cover_voice_srt_words_punc $cover_voice_srt_final
+    #srt_gen $content_file_fix $content_voice_file $content_srt $content_srt_words $content_srt_words_punc $content_srt_final
     if [ $bg_color != "black" ]; then
         echo "图片背景视频"
         if [ -f $bg_color ]; then
@@ -149,7 +151,7 @@ function cover_srt_gen() {
 
     #字幕校验
     echo $text > $cover_text
-    srt_fix $cover_voice_srt_final $cover_text $cover_voice_srt_correct $cover_voice_srt_correct_merge
+    #srt_fix $cover_voice_srt_final $cover_text $cover_voice_srt_correct $cover_voice_srt_correct_merge
     #生成ass文件
     if [ $pos == "center" ]; then
         align=5
@@ -162,7 +164,7 @@ function cover_srt_gen() {
     #python3 srt2ass_with_effect.py $cover_voice_srt $cover_voice_srt_ass --align 2 --font "鸿雷板书简体-正式版" --size 120 --color white  
     # python3 srt2ass_with_effect.py $cover_voice_srt_correct $cover_voice_srt_ass --align $align \
     #     --font "鸿雷板书简体-正式版" --size 120 --color $font_color --effect typewriter --max-chars 5
-    python3 srt2ass_with_effect.py $cover_voice_srt_correct_merge $cover_voice_srt_ass --align $align \
+    python3 srt2ass_with_effect.py $cover_voice_srt_final $cover_voice_srt_ass --align $align \
         --font "鸿雷板书简体-正式版" --size $ass_font_size --color $font_color --max-chars $line_max_chars
     #mp4合并ass
     rm -f $cover_video_ass
@@ -367,30 +369,31 @@ function ds() {
 }
 
 function content_video_gen_all() {
-    title="习得性无助"
+    title="自渡"
     file_txt=ai_responses_plain.txt
     #封面视频
     #cover_srt_gen 000 "今天我们分享的是" null picture/cover_pic_heng_169.jpg white center
     #cover_srt_gen 000 "今天我们分享的是毛姆的一篇长篇小说《${title}》" null picture/cover_pic_heng_169.jpg white center
     #封面视频
-    #cover_srt_gen 001 "毛姆的《${title}》" "《${title}》" picture/cover_pic_heng_169.jpg white bottom
+    #cover_srt_gen 001 "《${title}》" "《${title}》" picture/cover_pic_heng_169.jpg white bottom
     #cover_srt_gen 001 "毛姆的《${title}》" "《${title}》" black white bottom
     #内容页视频
     #对file_txt进行分段，一行一个文件，并且添加文件后缀
     id=1
     prefix=ai_responses_plain_part_
+    rm -rf $prefix*
     split_file_txt $file_txt 1 $prefix
     for file in $(ls $prefix*); do
         id=$(($id+1))
         dir_id="$(printf "%03d" $id)"
-        if [ 1 -eq 1 ] && [ $id != 4 ]; then
+        if [ 0 -eq 1 ] && [ $id != 2 ]; then
             continue
         fi
         rm -rf $dir_id
         echo $dir_id $file
         content_video_gen $dir_id "${title}" $file
     done
-    #merge_cover_video_all  2
+    merge_cover_video_all  2
 }
 
 function clear_audio_data() {
