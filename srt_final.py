@@ -92,11 +92,18 @@ def srt_content_align(srt_map_list, content_map_list):
             print(item)
             cnt += 1
         else:
-            item = [idx, word, pinyin, "None", "None", "None"]  
+            item = [idx, word, pinyin, ["None"], ["None"], ["None"]]  
             final_map_list.append(item)
             print(item)
             cnt += 1
+    #similarity_check(final_map_list)
     return final_map_list
+
+def similarity_check(final_map_list):
+    item_list = [it for item in final_map_list for it in item[2]]
+    item_list_txt = [it for item in final_map_list for it in item[4]]
+    print(item_list)
+    print(item_list_txt)
 
 def srt_content_map(final_map_list):
     result_list = {}
@@ -125,7 +132,7 @@ def srt_replace(srt_content_file, replace_map, srt_content_file_new):
             #print(line)
             line_split = line.split("  ")[0]
             replace_word = replace_map.get(idx, "")
-            line_new = line_split + "  " + replace_word
+            line_new = line_split + "  " + "".join(replace_word)
             srt_lines_new.append(line_new)
             idx += 1
     with open(srt_content_file_new, "w", encoding="utf-8") as f:    
