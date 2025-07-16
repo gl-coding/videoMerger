@@ -99,6 +99,7 @@ function cover_srt_gen() {
     bg_color=$4
     font_color=$5
     pos=$6
+    flag=$7
 
     echo "cover_srt_gen $dir $text $bg_color $font_color $pos"
     cover_pic_dir=$dir
@@ -128,7 +129,9 @@ function cover_srt_gen() {
     rm -f $cover_voice_srt
     #python srt_gen.py $cover_voice_file $cover_voice_srt 
     #srt_gen $cover_voice_file $cover_voice_srt_words $cover_voice_srt_final
-    srt_gen $cover_text $cover_voice_file $cover_voice_srt $cover_voice_srt_words $cover_voice_srt_words_punc $cover_voice_srt_final
+    if [ $flag == "off" ]; then
+        srt_gen $cover_text $cover_voice_file $cover_voice_srt $cover_voice_srt_words $cover_voice_srt_words_punc $cover_voice_srt_final
+    fi
     #srt_gen $content_file_fix $content_voice_file $content_srt $content_srt_words $content_srt_words_punc $content_srt_final
     if [ $bg_color != "black" ]; then
         echo "图片背景视频"
@@ -150,7 +153,7 @@ function cover_srt_gen() {
     fi
 
     #字幕校验
-    echo $text > $cover_text
+    #echo $text > $cover_text
     #srt_fix $cover_voice_srt_final $cover_text $cover_voice_srt_correct $cover_voice_srt_correct_merge
     #生成ass文件
     if [ $pos == "center" ]; then
@@ -328,11 +331,11 @@ function video_add_bgm() {
     sh add_bgm.sh -v 0.4 -l -f 1 -F 1 $local_video $bgm_file $local_bgm_video
 }
 
-function merge_cover_video_all() {
+function merge() {
     final_video=0_merged_cover.mp4
     bgm_video=0_merged_cover_bgm.mp4
 
-    max_num=$(($1+1))
+    max_num=5
     rm -f cover_list.txt
     for((i=0;i<$max_num;i++)); do
         dir=00$i
@@ -344,7 +347,7 @@ function merge_cover_video_all() {
     video_add_bgm $final_video $bgm_video
     
     # 删除临时文件
-    rm cover_list.txt
+    #rm cover_list.txt
 }
 
 function split_file_txt() {
@@ -368,14 +371,15 @@ function ds() {
     done
 }
 
-function content_video_gen_all() {
+function all() {
     title="自渡"
     file_txt=ai_responses_plain.txt
     #封面视频
-    #cover_srt_gen 000 "今天我们分享的是" null picture/cover_pic_heng_169.jpg white center
+    #cover_srt_gen 000 "今天我们分享的是" null picture/cover_pic_heng_169.jpg white center on
     #cover_srt_gen 000 "今天我们分享的是毛姆的一篇长篇小说《${title}》" null picture/cover_pic_heng_169.jpg white center
     #封面视频
-    #cover_srt_gen 001 "《${title}》" "《${title}》" picture/cover_pic_heng_169.jpg white bottom
+    cover_srt_gen 001 "《${title}》" "《${title}》" picture/cover_pic_heng_169.jpg white bottom on
+    exit
     #cover_srt_gen 001 "毛姆的《${title}》" "《${title}》" black white bottom
     #内容页视频
     #对file_txt进行分段，一行一个文件，并且添加文件后缀
@@ -393,7 +397,6 @@ function content_video_gen_all() {
         echo $dir_id $file
         content_video_gen $dir_id "${title}" $file
     done
-    merge_cover_video_all  2
 }
 
 function clear_audio_data() {
@@ -408,35 +411,7 @@ function clear_content_data() {
 
 function gen_video() {
     arg=$1
-    # 定义运行步骤
-    #run_flag="content_rewrite|cover_gen|clear_audio_data|voice_gen|download_wavs|rotate_image_wav|srt_gen|srt_fix|srt_merge|add_bgm_rotate|clear_content_data"
-    #run_flag="content_pic_gen"
-    #run_flag="content_rewrite"
-    #run_flag="cover_gen"
-    #run_flag="voice_gen"
-    #run_flag="download_wavs"
-    #run_flag="rotate_image_wav"
-    #run_flag="srt_gen"
-    #run_flag="srt_fix"
-    #run_flag="srt_merge"
-    #run_flag="add_bgm_rotate"
-    if [ "$arg" = "co" ]; then
-        run_flag="content_pic_get"
-    elif [ "$arg" = "re" ]; then
-        run_flag="content_rewrite"
-    elif [ "$arg" == "wav" ]; then
-        run_flag="clear_audio_data|voice_gen|download_wavs"
-    elif [ "$arg" == "sg" ]; then
-        run_flag="srt_gen"
-    elif [ "$arg" == "sf" ]; then
-        run_flag="srt_fix"
-    elif [ "$arg" == "sa" ]; then
-        run_flag="srt_ass_gen"
-    elif [ "$arg" == "video" ]; then
-        run_flag="content_video_pic_gen|video_bg_srt_gen|video_bg_srt_ass_gen|video_bg_srt_ass_header_gen|video_add_bgm"
-    else
-        run_flag=$arg
-    fi
+    run_flag=$arg
     # 使用数组方式分割字符串
     IFS='|' read -ra STEPS <<< "$run_flag"
     for step in "${STEPS[@]}"; do
