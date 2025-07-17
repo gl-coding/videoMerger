@@ -2,9 +2,6 @@
 line_max_chars=15
 ass_font_size=120
 
-#wav
-voice=dushunan
-
 # 获取内容图片
 function content_pic_get() {
     local_dir=$1
@@ -23,9 +20,9 @@ function voice_gen() {
     clear_audio_data
     text=$1
     dir=$2
-    name=$2
+    voice=$3
     wavfile=$dir/result.wav
-    text_file=$dir/$name.txt
+    text_file=$dir/result.txt
 
     mkdir -p $dir
     if [ -f $text ]; then
@@ -55,10 +52,11 @@ function cover_srt_gen() {
     title=$3
     bg_color=$4
     font_color=$5
-    pos=$6
-    flag=$7
+    srt_pos=$6
+    voice=$7
+    srt_flag=$8
 
-    echo "cover_srt_gen $dir $text $bg_color $font_color $pos"
+    echo "cover_srt_gen $dir $text $bg_color $font_color $srt_pos"
     cover_pic_dir=$dir
     cover_pic=$cover_pic_dir/cover_pic.jpg
     cover_text=$cover_pic_dir/cover_text.txt
@@ -81,13 +79,13 @@ function cover_srt_gen() {
     mkdir -p $cover_pic_dir
 
     #生成语音
-    voice_gen $text $cover_pic_dir
+    voice_gen $text $cover_pic_dir $voice
     #生成字幕
     rm -f $cover_voice_srt
     #python srt_gen.py $cover_voice_file $cover_voice_srt 
     #srt_gen $cover_voice_file $cover_voice_srt_words $cover_voice_srt_final
     echo $text > $cover_text
-    if [ $flag == "srt_gen_on" ]; then
+    if [ $srt_flag == "srt_gen_on" ]; then
         srt_gen $cover_text $cover_voice_file $cover_voice_srt $cover_voice_srt_words $cover_voice_srt_words_punc $cover_voice_srt_final
     fi
     #srt_gen $content_file_fix $content_voice_file $content_srt $content_srt_words $content_srt_words_punc $content_srt_final
@@ -114,9 +112,9 @@ function cover_srt_gen() {
     #echo $text > $cover_text
     #srt_fix $cover_voice_srt_final $cover_text $cover_voice_srt_correct $cover_voice_srt_correct_merge
     #生成ass文件
-    if [ $pos == "center" ]; then
+    if [ $srt_pos == "center" ]; then
         align=5
-    elif [ $pos == "bottom" ]; then
+    elif [ $srt_pos == "bottom" ]; then
         align=2
     else
         align=8
@@ -228,6 +226,7 @@ function content_video_gen() {
     local_dir=$1
     local_title=$2
     local_content_file=$3
+    voice=$4
     pic_content_file=$local_dir/pic_content.txt
     content_file=$local_dir/content.txt
     content_file_fix=$local_dir/content_fix.txt
@@ -264,7 +263,7 @@ function content_video_gen() {
     content_fix $content_file $content_file_fix
     #语音生成
     #cover_voice_gen "$(cat $content_file)" $dir
-    voice_gen $content_file_fix $local_dir
+    voice_gen $content_file_fix $local_dir $voice
     #生成视频
     content_video_pic_gen $content_pic $content_voice_file $content_video
     #生成字幕
@@ -325,18 +324,19 @@ function ds() {
         file_md=$file
         file_txt=ai_responses_plain.txt
         pandoc -f markdown -t plain $file_md -o $file_txt
-        content_video_gen 002 "$title" $file_txt
+        content_video_gen 002 "$title" $file_txt $voice
         mv $file_md ai_responses/
         break
     done
 }
 
 function all() {
+    voice=dushunan
     title="自渡"
     file_txt=ai_responses_plain.txt
     #封面视频
     #cover_srt_gen 000 "今天我们分享的是" null picture/cover_pic_heng_169.jpg white center on
-    cover_srt_gen 000 "今天我们分享的是毛姆的一篇长篇小说《${title}》" null picture/cover_pic_heng_169.jpg white center srt_gen_on
+    cover_srt_gen 000 "今天我们分享的是毛姆的一篇长篇小说《${title}》" null picture/cover_pic_heng_169.jpg white center $voice srt_gen_on
     exit
     #封面视频
     cover_srt_gen 001 "《${title}》" "《${title}》" picture/cover_pic_heng_169.jpg white bottom on
@@ -356,7 +356,7 @@ function all() {
         fi
         rm -rf $dir_id
         echo $dir_id $file
-        content_video_gen $dir_id "${title}" $file
+        content_video_gen $dir_id "${title}" $file $voice
     done
 }
 
