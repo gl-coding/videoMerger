@@ -6,13 +6,13 @@ ass_font_size=120
 function content_pic_get() {
     local_dir=$1
     local_title_file=$2
-    python3 coze_content_pic_gen.py $local_dir "$(cat $local_title_file)"
+    python libpy/coze_content_pic_gen.py $local_dir "$(cat $local_title_file)"
 }
 
 function content_fix() {
     local_content_file=$1
     local_content_file_fix=$2
-    python remove_ending_numbers.py $local_content_file $local_content_file_fix
+    python libpy/remove_ending_numbers.py $local_content_file $local_content_file_fix
 }
 
 # 提交获取语音任务
@@ -32,12 +32,12 @@ function voice_gen() {
     fi
     #提交语音生成任务
     uuid=result
-    python clone_voice.py -f $text_file -o $uuid -v $voice
+    python libpy/clone_voice.py -f $text_file -o $uuid -v $voice
     #下载语音
     rm -f $wavfile
     while true; do
         if [ ! -f $wavfile ]; then
-            python download_wavs.py 4 --delete-after-download -d $dir
+            python libpy/download_wavs.py 4 --delete-after-download -d $dir
         else
             echo "语音文件已存在"
             break
@@ -96,16 +96,16 @@ function cover_srt_gen() {
             #生成图片视频
             rm -f $cover_pic_video
             #sh image_to_video.sh $cover_pic_text_first $cover_voice_file $cover_pic_video -e zoom_in -s 2.0 --final-zoom 2.0
-            sh image_to_video.sh $cover_pic_text_first $cover_voice_file $cover_pic_video -e null
+            sh libsh/image_to_video.sh $cover_pic_text_first $cover_voice_file $cover_pic_video -e null
         else
             echo "图片不存在，使用黑色背景图片"
             rm -f $cover_pic_video
-            sh image_to_video.sh --color-only -b black $cover_voice_file $cover_pic_video
+            sh libsh/image_to_video.sh --color-only -b black $cover_voice_file $cover_pic_video
         fi
     else
         echo "纯色背景视频"
         rm -f $cover_pic_video
-        sh image_to_video.sh --color-only -b black $cover_voice_file $cover_pic_video
+        sh libsh/image_to_video.sh --color-only -b black $cover_voice_file $cover_pic_video
     fi
 
     #字幕校验
@@ -123,7 +123,7 @@ function cover_srt_gen() {
     #python3 srt2ass_with_effect.py $cover_voice_srt $cover_voice_srt_ass --align 2 --font "鸿雷板书简体-正式版" --size 120 --color white  
     # python3 srt2ass_with_effect.py $cover_voice_srt_correct $cover_voice_srt_ass --align $align \
     #     --font "鸿雷板书简体-正式版" --size 120 --color $font_color --effect typewriter --max-chars 5
-    python3 srt2ass_with_effect.py $cover_voice_srt_final $cover_voice_srt_ass --align $align \
+    python libpy/srt2ass_with_effect.py $cover_voice_srt_final $cover_voice_srt_ass --align $align \
         --font "鸿雷板书简体-正式版" --size $ass_font_size --color $font_color --max-chars $line_max_chars
     #mp4合并ass
     rm -f $cover_video_ass
@@ -146,7 +146,7 @@ function content_video_pic_gen() {
     #sh image_to_video.sh $local_pic $local_voice_file $local_content_video -e kenburns
     #sh image_to_video.sh $local_pic $local_voice_file $local_content_video -e fade
     #sh image_to_video.sh $local_pic $local_voice_file $local_content_video -e move_down
-    sh image_to_video.sh $local_pic $local_voice_file $local_content_video -e null
+    sh libsh/image_to_video.sh $local_pic $local_voice_file $local_content_video -e null
 }
 
 #content_video_pic_gen
@@ -160,10 +160,10 @@ function srt_gen() {
     local_srt_words_punc=$5
     local_srt_final=$6
     rm -f $local_srt $local_srt_words $local_srt_final
-    python srt_gen.py $local_voice $local_srt large-v3 zh $local_srt_words
+    python libpy/srt_gen.py $local_voice $local_srt large-v3 zh $local_srt_words
     #python srt_punc_map.py $local_content $local_srt_words $local_srt_words_punc
-    python srt_final.py $local_content $local_srt_words $local_srt_words_punc
-    python srt_gen_fromwords.py $local_srt_words_punc $local_srt_final
+    python libpy/srt_final.py $local_content $local_srt_words $local_srt_words_punc
+    python libpy/srt_gen_fromwords.py $local_srt_words_punc $local_srt_final
 }
 
 function srt_fix() {
@@ -177,14 +177,14 @@ function srt_fix() {
         exit 1
     fi
     rm -f $local_correct_srt $local_correct_srt_merge
-    python fix_srt.py $local_srt $local_content -o $local_correct_srt
-    python3 srt_merge.py $local_correct_srt $local_correct_srt_merge
+    python libpy/fix_srt.py $local_srt $local_content -o $local_correct_srt
+    python libpy/srt_merge.py $local_correct_srt
 }
 
 function srt_ass_gen() {
     local_correct_srt=$1
     local_srt_ass=$2
-    python3 srt2ass_with_effect.py  --align 5 --font "鸿雷板书简体-正式版" --size $ass_font_size \
+    python libpy/srt2ass_with_effect.py  --align 5 --font "鸿雷板书简体-正式版" --size $ass_font_size \
         --color red $local_correct_srt $local_srt_ass --max-chars $line_max_chars
 }
 
@@ -287,7 +287,7 @@ function video_add_bgm() {
     local_bgm_video=$2
     # 循环背景音乐，音量20%，3秒淡入淡出
     rm -f $local_bgm_video
-    sh add_bgm.sh -v 0.4 -l -f 1 -F 1 $local_video $local_bgm_file $local_bgm_video
+    sh libsh/add_bgm.sh -v 0.4 -l -f 1 -F 1 $local_video $local_bgm_file $local_bgm_video
 }
 
 function split_file_txt() {
@@ -313,12 +313,12 @@ function ds() {
 
 function clear_audio_data() {
     #清空语音数据
-    python api_operate.py clear 4
+    python libpy/api_operate.py clear 4
 }
 
 function clear_content_data() {
     #清空内容数据（包含封面图链接）
-    python api_operate.py clear_content
+    python libpy/api_operate.py clear_content
 }
 
 function func() {
