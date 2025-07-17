@@ -184,7 +184,8 @@ function srt_fix() {
 function srt_ass_gen() {
     local_correct_srt=$1
     local_srt_ass=$2
-    python3 srt2ass_with_effect.py  --align 5 --font "鸿雷板书简体-正式版" --size $ass_font_size --color red $local_correct_srt $local_srt_ass --max-chars $line_max_chars
+    python3 srt2ass_with_effect.py  --align 5 --font "鸿雷板书简体-正式版" --size $ass_font_size \
+        --color red $local_correct_srt $local_srt_ass --max-chars $line_max_chars
 }
 
 # 添加背景文字（可选）
