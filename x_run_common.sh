@@ -127,7 +127,7 @@ function cover_srt_gen() {
         --font "鸿雷板书简体-正式版" --size $ass_font_size --color $font_color --max-chars $line_max_chars
     #mp4合并ass
     rm -f $cover_video_ass
-    ffmpeg -i $cover_pic_video -vf "ass=$cover_voice_srt_ass:fontsdir=./font" -c:a copy $cover_video_ass
+    ffmpeg -i $cover_pic_video -vf "ass=$cover_voice_srt_ass:fontsdir=./sys_font" -c:a copy $cover_video_ass
 
     #是否在最终的视频上添加大字背景
     if [ $title != "null" ]; then
@@ -194,7 +194,7 @@ function video_bg_srt_gen() {
     local_title=$2
     local_video_bg_srt=$3
     rm -f $local_video_bg_srt
-    ffmpeg -i $local_video -vf "drawtext=text='$local_title':fontfile=./font/Aa剑豪体.ttf:fontsize=160:fontcolor=red@0.8:x=(W-tw)/2:y=100:" $local_video_bg_srt
+    ffmpeg -i $local_video -vf "drawtext=text='$local_title':fontfile=./sys_font/Aa剑豪体.ttf:fontsize=160:fontcolor=red@0.8:x=(W-tw)/2:y=100:" $local_video_bg_srt
 }
 
 # 用新字体生成mp4字幕文件
@@ -204,7 +204,7 @@ function gen_ass_video() {
     local_ass_video=$3
     rm -f $local_ass_video
     #ffmpeg -i jiqimao/result_video_rotate.mp4 -vf "ass=jiqimao/result_srt.ass" -c:a copy output.mp4
-    ffmpeg -i $local_srt_video -vf "ass=$local_ass_file:fontsdir=./font" -c:a copy $local_ass_video
+    ffmpeg -i $local_srt_video -vf "ass=$local_ass_file:fontsdir=./sys_font" -c:a copy $local_ass_video
 }
 
 # 视频添加水印
@@ -213,13 +213,13 @@ function video_add_watermark() {
     local_video=$2
     local_video_pre_header=$local_video"_pre_watermark.mp4"
     rm -f $local_video_pre_header
-    ffmpeg -i $local_video -vf "drawtext=text='@$local_name':fontfile=./font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white:x=10:y=10" $local_video_pre_header
+    ffmpeg -i $local_video -vf "drawtext=text='@$local_name':fontfile=./sys_font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white:x=10:y=10" $local_video_pre_header
 
     if [ "" = "null" ]; then
         local_video_post_header=$local_video"_post_watermark.mp4"
         rm -f $local_video_post_header
         #ffmpeg -i $local_video_pre_header -vf "drawtext=text='@版权所有':fontfile=./font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white@0.8:x=W-tw-10:y=10:shadowcolor=black:shadowx=2:shadowy=2" $local_video_post_header
-        ffmpeg -i $local_video_pre_header -vf "drawtext=text='@$local_name':fontfile=./font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white:x=W-tw-10:y=10" $local_video_post_header
+        ffmpeg -i $local_video_pre_header -vf "drawtext=text='@$local_name':fontfile=./sys_font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white:x=W-tw-10:y=10" $local_video_post_header
     fi 
 }
 
