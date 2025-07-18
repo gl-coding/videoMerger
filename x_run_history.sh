@@ -1,4 +1,4 @@
-source x_run_common.sh
+source sys_common.sh
 base_dir=data_history
 
 function merge() {
