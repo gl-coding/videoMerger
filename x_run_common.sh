@@ -246,7 +246,9 @@ function content_video_gen() {
     mkdir -p $local_dir
 
     #生成内容图
-    if [ $local_title != "null" ]; then
+    if [ -f $local_title ]; then
+        cp $local_title $pic_content_file
+    else
         echo $local_title > $pic_content_file
     fi
     content_pic_get $local_dir $pic_content_file
