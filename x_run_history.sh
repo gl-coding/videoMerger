@@ -1,24 +1,27 @@
 source x_run_common.sh
+base_dir=history
 
 function merge() {
-    final_video=tmp/0_merged_cover.mp4
-    bgm_video=tmp/0_merged_cover_bgm.mp4
     bgm_file=bgm/slow/7.wav
-    cover_list=tmp/cover_list.txt
+    final_video=$base_dir/final_merge.mp4
+    bgm_video=$base_dir/final_merge_bgm.mp4
+    video_list=$base_dir/video_list.txt
+
+    mkdir -p $base_dir
 
     max_num=5
-    rm -f $cover_list
+    rm -f $video_list
     for((i=0;i<$max_num;i++)); do
-        dir=00$i
-        echo "file '$dir/x_final.mp4'" >> $cover_list
+        dir=$base_dir/$00$i
+        echo "file '$dir/x_final.mp4'" >> $video_list
     done
     # 合并视频
     rm -f $final_video $bgm_video
-    ffmpeg -f concat -safe 0 -i $cover_list -c copy $final_video
+    ffmpeg -f concat -safe 0 -i $video_list -c copy $final_video
     video_add_bgm $final_video $bgm_file $bgm_video
     
     # 删除临时文件
-    #rm cover_list.txt
+    #rm video_list.txt
 }
 
 function all() {
@@ -34,19 +37,20 @@ function all() {
     #内容页视频
     #对file_txt进行分段，一行一个文件，并且添加文件后缀
     id=1
-    mkdir -p tmp
-    prefix=tmp/ai_responses_plain_part_
+    mkdir -p $base_dir
+    prefix=$base_dir/ai_responses_plain_part_
     rm -rf $prefix*
     split_file_txt $file_txt 1 $prefix
     for file in $(ls $prefix*); do
         id=$(($id+1))
         dir_id="$(printf "%03d" $id)"
+        full_dir=$base_dir/$dir_id
         if [ 1 -eq 1 ] && [ $id != 2 ]; then
             continue
         fi
         rm -rf $dir_id
         echo $dir_id $file
-        content_video_gen $dir_id $file $file $voice
+        content_video_gen $full_dir $file $file $voice
     done
 }
 
