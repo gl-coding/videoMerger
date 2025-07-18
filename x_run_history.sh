@@ -1,5 +1,5 @@
 source x_run_common.sh
-base_dir=history
+base_dir=data_history
 
 function merge() {
     bgm_file=bgm/slow/7.wav
@@ -38,7 +38,7 @@ function all() {
     #对file_txt进行分段，一行一个文件，并且添加文件后缀
     id=1
     mkdir -p $base_dir
-    prefix=$base_dir/ai_responses_plain_part_
+    prefix=$base_dir/text_part_
     rm -rf $prefix*
     split_file_txt $file_txt 1 $prefix
     for file in $(ls $prefix*); do
