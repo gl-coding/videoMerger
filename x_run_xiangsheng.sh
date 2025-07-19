@@ -34,6 +34,7 @@ function merge() {
     # 确保在项目根目录下执行ffmpeg命令
     ffmpeg -f concat -safe 0 -i $video_list -c copy $final_video
     video_add_bgm $final_video $bgm_file $bgm_video
+    video_add_watermark $bgm_video "《一句顶一万句》——刘震云" "@kumi的读书日记"
     
     # 删除临时文件
     #rm video_list.txt

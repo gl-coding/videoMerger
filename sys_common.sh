@@ -213,17 +213,20 @@ function gen_ass_video() {
 
 # 视频添加水印
 function video_add_watermark() {
-    local_name=$1
-    local_video=$2
-    local_video_pre_header=$local_video"_pre_watermark.mp4"
-    rm -f $local_video_pre_header
-    ffmpeg -i $local_video -vf "drawtext=text='@$local_name':fontfile=./sys_font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white:x=10:y=10" $local_video_pre_header
+    local_video=$1
+    pre_text=$2
+    post_text=$3
+    local_video_pre_header=$local_video"_pre_text.mp4"
+    if [ $pre_text != "null" ]; then
+        rm -f $local_video_pre_header
+        ffmpeg -i $local_video -vf "drawtext=text='$pre_text':fontfile=./sys_font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white:x=10:y=10" $local_video_pre_header
+    fi
 
-    if [ "" = "null" ]; then
-        local_video_post_header=$local_video"_post_watermark.mp4"
+    if [ $pre_text != "null" ] && [ $post_text != "null" ]; then
+        local_video_post_header=$local_video"_post_text.mp4"
         rm -f $local_video_post_header
         #ffmpeg -i $local_video_pre_header -vf "drawtext=text='@版权所有':fontfile=./font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white@0.8:x=W-tw-10:y=10:shadowcolor=black:shadowx=2:shadowy=2" $local_video_post_header
-        ffmpeg -i $local_video_pre_header -vf "drawtext=text='@$local_name':fontfile=./sys_font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white:x=W-tw-10:y=10" $local_video_post_header
+        ffmpeg -i $local_video_pre_header -vf "drawtext=text='$post_text':fontfile=./sys_font/鸿雷板书简体-正式版.ttf:fontsize=36:fontcolor=white:x=W-tw-10:y=10" $local_video_post_header
     fi 
 }
 
