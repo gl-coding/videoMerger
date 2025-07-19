@@ -1,5 +1,9 @@
 source sys_common.sh
-base_dir=data_history
+# 获取运行脚本名字
+script_name=$0
+dir_name=$(echo $script_name | sed 's/\.sh//' | sed 's/^x_//' | sed 's/^run_//')
+echo "run: "$dir_name
+base_dir=data_$dir_name
 
 function merge() {
     bgm_file=sys_bgm/slow/7.wav

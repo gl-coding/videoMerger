@@ -1,6 +1,7 @@
 import os
 import sys
 import pypinyin
+from difflib import SequenceMatcher
 
 pre_punc = "《“"
 post_punc = "，。！？,.!?;；:：、》”"
@@ -77,7 +78,7 @@ def gen_content_map(content_file):
     return result_list
 
 #对其srt文件
-def srt_content_align(srt_map_list, content_map_list):
+def srt_content_align_old(srt_map_list, content_map_list):
     final_map_list = []
     cnt = 0
     print(len(srt_map_list), len(content_map_list))
@@ -99,6 +100,90 @@ def srt_content_align(srt_map_list, content_map_list):
             cnt += 1
     #similarity_check(final_map_list)
     return final_map_list
+
+#对其srt文件
+def srt_content_align(srt_map_list, content_map_list, debug=True):
+    final_map_list = []
+    cnt = 0
+    print(len(srt_map_list), len(content_map_list))
+    for i in range(len(content_map_list)):
+        word   = content_map_list[i][0]
+        pinyin = content_map_list[i][1]
+        word_punc = content_map_list[i][2]
+        if cnt < len(srt_map_list):
+            map_word = srt_map_list[cnt]
+            idx_srt = map_word[0]
+            word_srt = map_word[1]
+            pinyin_srt = map_word[2]
+            content_pre_line = "".join([item[0] for item in content_map_list[:i+1]])
+            srt_pre_line = "".join([item[1] for item in srt_map_list[:cnt+1]])
+            sim = similarity_get(content_pre_line, srt_pre_line)
+            sim_pinyin = similarity_pinyin_get(content_pre_line, srt_pre_line)
+            if debug:
+                print("++++++++++++++++++++++++++++")
+                print(content_pre_line)
+                print(srt_pre_line)
+                print("sim:", sim, "sim_pinyin:", sim_pinyin)
+            if not (sim > 0.999 or sim_pinyin > 0.999):
+                content_next_word = content_map_list[i+1][0]
+                content_next_pinyin = content_map_list[i+1][1]
+                srt_next_word = srt_map_list[cnt+1][1]
+                srt_next_pinyin = srt_map_list[cnt+1][2]
+                last_sim = similarity_get(content_next_pinyin, pinyin_srt)
+                if debug: 
+                    print("=======================sim < 1, 进入纠错模式==================================")
+                    print(content_next_word, content_next_pinyin)
+                    print(srt_next_word, srt_next_pinyin)
+                    print("纠错前sim:", last_sim)
+                if last_sim > 0.9:
+                    if debug: print("=======================纠错成功==================================")
+                    srt_map_list.insert(cnt, [idx_srt, word, pinyin])
+                    if debug: print(srt_map_list[cnt])
+                    content_pre_line = "".join([item[0] for item in content_map_list[:i+1]])
+                    srt_pre_line = "".join([item[1] for item in srt_map_list[:cnt+1]])
+                    sim = similarity_get(content_pre_line, srt_pre_line)
+                    item = [idx_srt, word, pinyin, word, pinyin, word_punc]
+                    final_map_list.append(item)
+                    if debug: 
+                        print("---------------------------")
+                        print(content_pre_line)
+                        print(srt_pre_line)
+                        print("纠错后sim:", sim)
+                    cnt += 1
+                    continue
+                break
+            else:
+                item = [idx_srt, word_srt, pinyin_srt, word, pinyin, word_punc]
+                final_map_list.append(item)
+                print(item)
+                cnt += 1
+        # else:
+        #     item = [idx, word, pinyin, ["None"], ["None"], ["None"]]  
+        #     final_map_list.append(item)
+        #     print(item)
+        #     cnt += 1
+    #similarity_check(final_map_list)
+    return final_map_list
+
+def similarity_pinyin_get(content_pre_line, srt_pre_line):
+    # 计算content_pre_line和srt_pre_line的相似度
+    cnt = 0
+    for i in range(len(content_pre_line)):
+        content_pinyin = "".join(pypinyin.lazy_pinyin(content_pre_line[i]))
+        srt_pinyin = "".join(pypinyin.lazy_pinyin(srt_pre_line[i]))
+        #计算两个拼音的相似度
+        seq = SequenceMatcher(None, content_pinyin, srt_pinyin)
+        if seq.ratio() > 0.5:
+            cnt += 1
+    return cnt/len(content_pre_line)
+
+def similarity_get(content_pre_line, srt_pre_line):
+    # 计算content_pre_line和srt_pre_line的相似度
+    cnt = 0
+    for i in range(len(content_pre_line)):
+        if content_pre_line[i] == srt_pre_line[i]:
+            cnt += 1
+    return cnt/len(content_pre_line)
 
 def similarity_check(final_map_list):
     item_list = [it for item in final_map_list for it in item[2]]
@@ -149,7 +234,10 @@ if __name__ == "__main__":
     content_map_list = gen_content_map(content_file)
     srt_map_list     = srt_to_content(srt_file)
     #for item in content_map_list: print(item)
-    final_map_list    = srt_content_align(srt_map_list, content_map_list)
+    final_map_list    = srt_content_align(srt_map_list, content_map_list, debug=True)
+    #exit(0)
+    for item in final_map_list:
+        print(item)
     map_res          = srt_content_map(final_map_list)
     #for item in map_res: print(item, map_res[item])
     srt_replace(srt_file, map_res, srt_file_new)
