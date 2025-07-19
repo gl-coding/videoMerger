@@ -84,7 +84,11 @@ function cover_srt_gen() {
     rm -f $cover_voice_srt
     #python srt_gen.py $cover_voice_file $cover_voice_srt 
     #srt_gen $cover_voice_file $cover_voice_srt_words $cover_voice_srt_final
-    echo $text > $cover_text
+    if [ -f $text ]; then
+        cp $text $cover_text
+    else
+        echo $text > $cover_text
+    fi
     if [ $srt_flag == "srt_gen_on" ]; then
         srt_gen $cover_text $cover_voice_file $cover_voice_srt $cover_voice_srt_words $cover_voice_srt_words_punc $cover_voice_srt_final
     fi
