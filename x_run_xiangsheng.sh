@@ -1,12 +1,12 @@
 source sys_common.sh
 # 获取运行脚本名字
 script_name=$0
-dir_name=$(echo $script_name | sed 's/\.sh//' | sed 's/^x_//' | sed 's/^run_//')
+dir_name=$(echo $script_name | sed 's/\.sh//' | sed 's/^x_//' | sed 's/^run_//' | sed 's/^\.\///')
 echo "run: "$dir_name
 base_dir=data_$dir_name
 
 function merge() {
-    bgm_file=sys_bgm/slow/7.wav
+    bgm_file=sys_bgm/slow/1.wav
     final_video=$base_dir/final_merge.mp4
     bgm_video=$base_dir/final_merge_bgm.mp4
     video_list=$base_dir/video_list.txt
@@ -16,16 +16,22 @@ function merge() {
     max_num=100
     rm -f $video_list
     for((i=0;i<$max_num;i++)); do
-        dir=$base_dir/$00$i
+        dir_id="$(printf "%03d" $i)"
+        dir=$base_dir/$dir_id
         mp4_file=$dir/x_final.mp4
         if [ -f $mp4_file ]; then   
-            echo "file '$mp4_file'" >> $video_list
+            echo "$mp4_file"
+            # 使用绝对路径，确保ffmpeg能正确找到文件
+            abs_path=$(realpath $mp4_file)
+            echo "file '$abs_path'" >> $video_list
         else
+            echo "not found: $mp4_file"
             break
         fi
     done
     # 合并视频
     rm -f $final_video $bgm_video
+    # 确保在项目根目录下执行ffmpeg命令
     ffmpeg -f concat -safe 0 -i $video_list -c copy $final_video
     video_add_bgm $final_video $bgm_file $bgm_video
     

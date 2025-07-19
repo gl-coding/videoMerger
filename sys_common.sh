@@ -291,7 +291,7 @@ function content_video_gen() {
 function video_add_bgm() {
     local_video=$1
     local_bgm_file=$2
-    local_bgm_video=$2
+    local_bgm_video=$3
     # 循环背景音乐，音量20%，3秒淡入淡出
     rm -f $local_bgm_video
     sh libsh/add_bgm.sh -v 0.4 -l -f 1 -F 1 $local_video $local_bgm_file $local_bgm_video
