@@ -124,7 +124,21 @@ def srt_content_align(srt_map_list, content_map_list, debug=True):
                 print(content_pre_line)
                 print(srt_pre_line)
                 print("sim:", sim, "sim_pinyin:", sim_pinyin)
-            if not (sim > 0.999 or sim_pinyin > 0.999):
+            if  sim_pinyin > 0.999 and sim < 1.0:
+                if debug: print("=======================sim_pinyin > 0.999 and sim < 1.0==================================")
+                srt_map_list[cnt] = [idx_srt, word, pinyin]
+                item = [idx_srt, word, pinyin, word, pinyin, word_punc]
+                if debug:
+                    content_pre_line = "".join([item[0] for item in content_map_list[:i+1]])
+                    srt_pre_line = "".join([item[1] for item in srt_map_list[:cnt+1]])
+                    sim = similarity_get(content_pre_line, srt_pre_line)
+                    sim_pinyin = similarity_pinyin_get(content_pre_line, srt_pre_line)
+                    print(content_pre_line)
+                    print(srt_pre_line)
+                    print("微调后 sim:", sim, "sim_pinyin:", sim_pinyin)
+                final_map_list.append(item)
+                cnt += 1
+            elif not (sim > 0.999 or sim_pinyin > 0.999):
                 content_next_word = content_map_list[i+1][0]
                 content_next_pinyin = content_map_list[i+1][1]
                 srt_next_word = srt_map_list[cnt+1][1]
