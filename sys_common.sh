@@ -232,6 +232,7 @@ function content_video_gen() {
     local_title=$2
     local_content_file=$3
     voice=$4
+    jump_long_time=$5
     pic_content_file=$local_dir/pic_content.txt
     content_file=$local_dir/content.txt
     content_file_fix=$local_dir/content_fix.txt
@@ -249,36 +250,36 @@ function content_video_gen() {
 
     mkdir -p $local_dir
 
-    #生成内容图
-    if [ -f $local_title ]; then
-        cp $local_title $pic_content_file
-    else
-        echo $local_title > $pic_content_file
+    if [ $jump_long_time == "jump_false" ]; then
+        #生成内容图
+        if [ -f $local_title ]; then
+            cp $local_title $pic_content_file
+        else
+            echo $local_title > $pic_content_file
+        fi
+        content_pic_get $local_dir $pic_content_file
+        #如果内容图不存在，则退出
+        if [ ! -f $content_pic ]; then
+            echo "图片文件下载失败，exit"
+            exit 1
+        fi
+        #生成语音
+        echo "我步入丛林，因为我希望生活得有意义……以免在临终时，发现自己从来没有活过。" > $content_file
+        if [ -f $local_content_file ]; then
+            cp $local_content_file $content_file
+        fi
+        #原文纠错（去引用）
+        content_fix $content_file $content_file_fix
+        #语音生成
+        #cover_voice_gen "$(cat $content_file)" $dir
+        voice_gen $content_file_fix $local_dir $voice
+        #生成视频
+        content_video_pic_gen $content_pic $content_voice_file $content_video
     fi
-    content_pic_get $local_dir $pic_content_file
-    #如果内容图不存在，则退出
-    if [ ! -f $content_pic ]; then
-        echo "图片文件下载失败，exit"
-        exit 1
-    fi
-    #生成语音
-    echo "我步入丛林，因为我希望生活得有意义……以免在临终时，发现自己从来没有活过。" > $content_file
-    if [ -f $local_content_file ]; then
-        cp $local_content_file $content_file
-    fi
-    #原文纠错（去引用）
-    content_fix $content_file $content_file_fix
-    #语音生成
-    #cover_voice_gen "$(cat $content_file)" $dir
-    voice_gen $content_file_fix $local_dir $voice
-    #生成视频
-    content_video_pic_gen $content_pic $content_voice_file $content_video
+
     #生成字幕
     srt_gen $content_file_fix $content_voice_file $content_srt $content_srt_words $content_srt_words_punc $content_srt_final
-    #字幕纠错
-    #srt_fix  $content_srt_final $content_file_fix $content_correct_srt $content_correct_srt_merge
     #字幕转ass
-    #srt_ass_gen $content_correct_srt_merge $content_correct_ass
     srt_ass_gen $content_srt_final $content_correct_ass
     #生成带ass字幕的视频
     gen_ass_video $content_video $content_correct_ass $content_video_ass

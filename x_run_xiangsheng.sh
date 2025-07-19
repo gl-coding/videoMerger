@@ -44,25 +44,35 @@ function all() {
     
     #内容页视频
     #对file_txt进行分段，一行一个文件，并且添加文件后缀
-    id=0
+    id=-1
+    jump_to_id=-8
+    jump_flag=jump_true
+    rm_dir=rm_false
     mkdir -p $base_dir
     prefix=$base_dir/text_part_
     rm -rf $prefix*
     split_file_txt $file_txt 1 $prefix
     for file in $(ls $prefix*); do
-        if [ 1 -eq 1 ] && [ $id != 0 ]; then
-            continue
+        id=$(($id+1))
+        if [ $jump_to_id -lt 0 ]; then
+            jump_to_id_local=$((0-$jump_to_id))
+            #echo "jump_to_id: $jump_to_id_local"
+            if [ $id != $jump_to_id_local ]; then
+                continue
+            fi
         fi
+        echo "id: $id"
         dir_id="$(printf "%03d" $id)"
         full_dir=$base_dir/$dir_id
-        rm -rf $full_dir
+        if [ $rm_dir == "rm_true" ]; then
+            rm -rf $full_dir
+        fi
         echo $full_dir $file
         if [ $id -eq 0 ]; then
             cover_srt_gen $full_dir $file "《${title}》" sys_picture/cover_pic1_heng_169.jpg white bottom $voice srt_gen_on
         else
-            content_video_gen $full_dir $file $file $voice
+            content_video_gen $full_dir $file $file $voice $jump_flag
         fi
-        id=$(($id+1))
     done
 }
 
