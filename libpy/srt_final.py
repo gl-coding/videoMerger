@@ -148,7 +148,7 @@ def srt_content_align(srt_map_list, content_map_list, debug=True):
                     print("=======================sim < 1, 进入纠错模式==================================")
                     print(content_next_word, content_next_pinyin)
                     print(srt_next_word, srt_next_pinyin)
-                    print("纠错前sim:", last_sim)
+                    print("纠错前last_sim:", last_sim)
                 if last_sim > 0.9:
                     if debug: print("=======================纠错成功==================================")
                     srt_map_list.insert(cnt, [idx_srt, word, pinyin])
