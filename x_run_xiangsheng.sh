@@ -45,9 +45,10 @@ function all() {
     #内容页视频
     #对file_txt进行分段，一行一个文件，并且添加文件后缀
     id=-1
-    jump_to_id=-8
+    jump_to_id=-14
     jump_flag=jump_true
     rm_dir=rm_false
+    mode=single
     mkdir -p $base_dir
     prefix=$base_dir/text_part_
     rm -rf $prefix*
@@ -57,7 +58,10 @@ function all() {
         if [ $jump_to_id -lt 0 ]; then
             jump_to_id_local=$((0-$jump_to_id))
             #echo "jump_to_id: $jump_to_id_local"
-            if [ $id != $jump_to_id_local ]; then
+            if [ $mode == "preall" ] && [ $id -lt $jump_to_id_local ]; then
+                continue
+            fi
+            if [ $mode == "single" ] && [ $id != $jump_to_id_local ]; then
                 continue
             fi
         fi

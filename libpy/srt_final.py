@@ -142,6 +142,13 @@ def srt_content_align(srt_map_list, content_map_list, debug=True):
                 final_map_list.append(item)
                 cnt += 1
             elif not (sim > 0.999 or sim_pinyin > 0.999):
+                if i+1 >= len(content_map_list) or cnt+1 >= len(srt_map_list):
+                    print("=======================sim < 1, 进入纠错模式, 但是没有下一个字了==================================")
+                    item = [idx_srt, word, pinyin, word, pinyin, word_punc]
+                    final_map_list.append(item)
+                    print(item)
+                    cnt += 1
+                    continue
                 content_next_word = content_map_list[i+1][0]
                 content_next_pinyin = content_map_list[i+1][1]
                 srt_next_word = srt_map_list[cnt+1][1]
